@@ -308,6 +308,85 @@ select:focus-visible {
   color: var(--placeholder);
 }
 
+/* Botones de límite e infinito integrados dentro del mismo buscador */
+.in-search-limits {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--superficie-suave);
+  padding: 4px;
+  border-radius: 99px;
+  flex-shrink: 0;
+}
+
+.in-search-limit-btn {
+  height: 34px;
+  min-width: 38px;
+  padding: 0 11px;
+  border-radius: 99px;
+  border: none;
+  background: transparent;
+  color: var(--texto-secundario);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background-color 0.2s var(--ease),
+    color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease),
+    transform 0.15s var(--ease);
+}
+
+.in-search-limit-btn:hover {
+  color: var(--texto);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.in-search-limit-btn.active {
+  background: var(--superficie-blanca);
+  color: var(--primario);
+  box-shadow: 0 1px 4px rgba(32, 33, 36, 0.15);
+  font-weight: 600;
+}
+
+.in-search-limit-btn:active {
+  transform: scale(0.95);
+}
+
+.in-search-limit-input {
+  width: 52px;
+  height: 34px;
+  border-radius: 99px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--texto-secundario);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  padding: 0 6px;
+  transition: all 0.2s var(--ease);
+}
+
+.in-search-limit-input:hover {
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--texto);
+}
+
+.in-search-limit-input.active,
+.in-search-limit-input:focus {
+  background: var(--superficie-blanca);
+  color: var(--primario);
+  border-color: var(--tonal-hover);
+  box-shadow: 0 1px 4px rgba(32, 33, 36, 0.15);
+  font-weight: 600;
+  outline: none;
+}
+
 .search-submit-btn {
   width: 48px;
   height: 48px;

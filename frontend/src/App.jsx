@@ -870,6 +870,58 @@ export default function App() {
               aria-label="Buscar comercios"
             />
 
+            {/* Botones de límite e infinito integrados en el mismo buscador */}
+            <div className="in-search-limits" role="group" aria-label="Límite de comercios a buscar">
+              {[25, 50, 100].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className={`in-search-limit-btn ${
+                    !isInfinite && Number(customLimit) === preset ? 'active' : ''
+                  }`}
+                  onClick={() => {
+                    setIsInfinite(false);
+                    setCustomLimit(preset);
+                  }}
+                  title={`Tope de ${preset} comercios`}
+                >
+                  {preset}
+                </button>
+              ))}
+
+              <input
+                type="number"
+                min="1"
+                max="5000"
+                value={customLimit}
+                onClick={() => setIsInfinite(false)}
+                onChange={(e) => {
+                  setIsInfinite(false);
+                  const val = e.target.value;
+                  setCustomLimit(val === '' ? '' : Math.max(1, parseInt(val, 10) || 1));
+                }}
+                onBlur={() => {
+                  if (!customLimit || Number(customLimit) < 1) setCustomLimit(50);
+                }}
+                aria-label="Tope personalizado de clientes"
+                title="Escribir tope personalizado de clientes"
+                className={`in-search-limit-input ${
+                  !isInfinite && ![25, 50, 100].includes(Number(customLimit)) ? 'active' : ''
+                }`}
+              />
+
+              <button
+                type="button"
+                className={`in-search-limit-btn ${isInfinite ? 'active' : ''}`}
+                onClick={() => setIsInfinite(true)}
+                title="Infinitos hasta que ya no encuentre más comercios"
+                aria-label="Infinitos sin límite"
+                style={{ fontSize: '16px' }}
+              >
+                ∞
+              </button>
+            </div>
+
             <button
               type="button"
               className="search-submit-btn"
@@ -884,7 +936,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* 3. Cuatro Chips de Ajustes que rotan con cada clic */}
+        {/* 3. Chips de Ajustes (Destino y País de WhatsApp) */}
         <div className="chips-row rise-4">
           {/* Chip 1: Destino */}
           <button
@@ -909,68 +961,6 @@ export default function App() {
             <MaterialIcon name="mundo" size={18} className="setting-chip-icon" />
             <span className={chipFlip.pais ? 'chip-val-a' : 'chip-val-b'}>
               {currentCountry.label}
-            </span>
-          </button>
-
-          {/* Chip 3A: Tope personalizable de clientes a contactar */}
-          <div
-            className={`limit-input-chip ${!isInfinite ? 'active-pill' : ''}`}
-            onClick={() => setIsInfinite(false)}
-            title="Escribí el tope exacto de clientes que querés recopilar"
-          >
-            <MaterialIcon name="lista" size={18} className="setting-chip-icon" />
-            <span>Tope:</span>
-            <input
-              type="number"
-              min="1"
-              max="5000"
-              value={customLimit}
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsInfinite(false);
-              }}
-              onChange={(e) => {
-                setIsInfinite(false);
-                const val = e.target.value;
-                setCustomLimit(val === '' ? '' : Math.max(1, parseInt(val, 10) || 1));
-              }}
-              onBlur={() => {
-                if (!customLimit || Number(customLimit) < 1) setCustomLimit(50);
-              }}
-              aria-label="Tope de clientes a contactar"
-              className="limit-number-field"
-            />
-            <span>clientes</span>
-          </div>
-
-          {/* Chip 3B: Modo Infinitos (hasta que ya no encuentre más) */}
-          <button
-            type="button"
-            className={`setting-chip ${isInfinite ? 'active-pill' : ''}`}
-            aria-label="Infinitos hasta que ya no encuentre comercios"
-            onClick={() => {
-              setChipFlip((prev) => ({ ...prev, cantidad: !prev.cantidad }));
-              setIsInfinite((prev) => !prev);
-            }}
-          >
-            <span style={{ fontSize: '16px', fontWeight: 600, color: '#1a73e8', lineHeight: 1 }}>
-              ∞
-            </span>
-            <span className={chipFlip.cantidad ? 'chip-val-a' : 'chip-val-b'}>
-              {isInfinite ? 'Infinitos (Activo)' : 'Infinitos (Sin tope)'}
-            </span>
-          </button>
-
-          {/* Chip 4: Navegador */}
-          <button
-            type="button"
-            className="setting-chip"
-            aria-label="Navegador: tocar para cambiar"
-            onClick={() => handleRotateChip('navegador')}
-          >
-            <MaterialIcon name="ojo" size={18} className="setting-chip-icon" />
-            <span className={chipFlip.navegador ? 'chip-val-a' : 'chip-val-b'}>
-              {currentBrowser.label}
             </span>
           </button>
         </div>
