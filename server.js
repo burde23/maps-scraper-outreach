@@ -2,7 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
+import { exec } from 'child_process';
 import { fileURLToPath } from 'url';
+import ExcelJS from 'exceljs';
 import { scrapeGoogleMaps, normalizeWhatsAppPhone } from './scraper.js';
 import { generateExcel } from './excel-generator.js';
 
@@ -15,10 +17,27 @@ const PORT = process.env.PORT || 3005;
 app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 
-// Ensure temp directory exists for Excel exports
+// Dedicated local folder for saved Excel files
+const excelsDir = path.join(__dirname, 'excels');
+if (!fs.existsSync(excelsDir)) {
+  fs.mkdirSync(excelsDir, { recursive: true });
+}
+
+// Legacy temp directory (copy any existing .xlsx files into excelsDir so all files appear in the viewer)
 const tempDir = path.join(__dirname, 'temp');
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir, { recursive: true });
+if (fs.existsSync(tempDir)) {
+  try {
+    const legacyFiles = fs.readdirSync(tempDir).filter((f) => f.toLowerCase().endsWith('.xlsx'));
+    for (const file of legacyFiles) {
+      const src = path.join(tempDir, file);
+      const dest = path.join(excelsDir, file);
+      if (!fs.existsSync(dest)) {
+        fs.copyFileSync(src, dest);
+      }
+    }
+  } catch (e) {
+    console.error('Aviso migrando Excels antiguos:', e);
+  }
 }
 
 // Ensure data directory and database.json exist for 100% local persistence
@@ -31,7 +50,8 @@ const dbFilePath = path.join(dataDir, 'database.json');
 const DEFAULT_DB = {
   settings: {
     defaultCountryCode: '54',
-    whatsappTemplate: '¡Hola {nombre}! 👋 Los encontré buscando *{rubro}* en Google Maps ({lugar}) y quería ponerme en contacto con ustedes.'
+    whatsappTemplate:
+      '¡Hola {nombre}! 👋 Los encontré buscando *{rubro}* en Google Maps ({lugar}) y quería ponerme en contacto con ustedes.'
   },
   sections: []
 };
@@ -112,7 +132,7 @@ app.put('/api/sections/:sectionId', (req, res) => {
   const { name } = req.body;
 
   const db = readDb();
-  const sec = db.sections.find(s => s.id === sectionId);
+  const sec = db.sections.find((s) => s.id === sectionId);
   if (!sec) {
     return res.status(404).json({ error: 'Sección no encontrada.' });
   }
@@ -133,7 +153,7 @@ app.delete('/api/sections/:sectionId', (req, res) => {
   const { sectionId } = req.params;
   const db = readDb();
   const prevLen = db.sections.length;
-  db.sections = db.sections.filter(s => s.id !== sectionId);
+  db.sections = db.sections.filter((s) => s.id !== sectionId);
 
   if (db.sections.length === prevLen) {
     return res.status(404).json({ error: 'Sección no encontrada.' });
@@ -149,14 +169,14 @@ app.delete('/api/sections/:sectionId', (req, res) => {
 app.delete('/api/sections/:sectionId/contacts/:contactId', (req, res) => {
   const { sectionId, contactId } = req.params;
   const db = readDb();
-  const sec = db.sections.find(s => s.id === sectionId);
+  const sec = db.sections.find((s) => s.id === sectionId);
 
   if (!sec) {
     return res.status(404).json({ error: 'Sección no encontrada.' });
   }
 
   const prevCount = sec.contacts.length;
-  sec.contacts = sec.contacts.filter(c => c.id !== contactId);
+  sec.contacts = sec.contacts.filter((c) => c.id !== contactId);
 
   if (sec.contacts.length === prevCount) {
     return res.status(404).json({ error: 'Contacto no encontrado en esta sección.' });
@@ -168,19 +188,19 @@ app.delete('/api/sections/:sectionId/contacts/:contactId', (req, res) => {
 });
 
 /**
- * 6. PATCH /api/sections/:sectionId/contacts/:contactId -> Update contact (e.g., toggle contacted, update phone/notes)
+ * 6. PATCH /api/sections/:sectionId/contacts/:contactId -> Update contact
  */
 app.patch('/api/sections/:sectionId/contacts/:contactId', (req, res) => {
   const { sectionId, contactId } = req.params;
   const { contacted, phone, notes } = req.body;
 
   const db = readDb();
-  const sec = db.sections.find(s => s.id === sectionId);
+  const sec = db.sections.find((s) => s.id === sectionId);
   if (!sec) {
     return res.status(404).json({ error: 'Sección no encontrada.' });
   }
 
-  const contact = sec.contacts.find(c => c.id === contactId);
+  const contact = sec.contacts.find((c) => c.id === contactId);
   if (!contact) {
     return res.status(404).json({ error: 'Contacto no encontrado.' });
   }
@@ -191,7 +211,11 @@ app.patch('/api/sections/:sectionId/contacts/:contactId', (req, res) => {
   }
   if (typeof phone === 'string') {
     contact.phone = phone.trim();
-    contact.whatsappPhone = normalizeWhatsAppPhone(contact.phone, contact.whatsapp, sec.countryCode || db.settings.defaultCountryCode);
+    contact.whatsappPhone = normalizeWhatsAppPhone(
+      contact.phone,
+      contact.whatsapp,
+      sec.countryCode || db.settings.defaultCountryCode
+    );
     if (contact.whatsappPhone) {
       contact.whatsapp = `https://wa.me/${contact.whatsappPhone}`;
     }
@@ -206,27 +230,27 @@ app.patch('/api/sections/:sectionId/contacts/:contactId', (req, res) => {
 });
 
 /**
- * 7. POST /api/sections/:sectionId/export-excel -> Generate downloadable Excel for a specific saved section
+ * 7. POST /api/sections/:sectionId/export-excel -> Generate Excel for a specific saved section
  */
 app.post('/api/sections/:sectionId/export-excel', async (req, res) => {
   const { sectionId } = req.params;
   const db = readDb();
-  const sec = db.sections.find(s => s.id === sectionId);
+  const sec = db.sections.find((s) => s.id === sectionId);
 
   if (!sec || !sec.contacts || sec.contacts.length === 0) {
     return res.status(400).json({ error: 'Esta sección no tiene contactos para exportar.' });
   }
 
   try {
-    const sanitizedName = sec.name.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 25);
+    const sanitizedName = sec.name.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 28);
     const filename = `contactos_${sanitizedName}_${Date.now()}.xlsx`;
-    const filePath = path.join(tempDir, filename);
+    const filePath = path.join(excelsDir, filename);
 
     await generateExcel(sec.contacts, filePath);
     sec.excelFilename = filename;
     writeDb(db);
 
-    res.json({ success: true, filename });
+    res.json({ success: true, filename, filePath });
   } catch (err) {
     console.error('Error exportando Excel de sección:', err);
     res.status(500).json({ error: 'Error al generar el Excel de la sección.' });
@@ -252,11 +276,159 @@ app.put('/api/settings', (req, res) => {
 });
 
 /**
- * 9. GET /api/scrape-stream -> SSE Stream endpoint for real-time Google Maps scraping
- * Automatically creates/updates a dedicated search section in local storage!
+ * 9. GET /api/excels -> Lists all saved Excel (.xlsx) files inside local excels/ directory
+ */
+app.get('/api/excels', (req, res) => {
+  try {
+    if (!fs.existsSync(excelsDir)) {
+      fs.mkdirSync(excelsDir, { recursive: true });
+    }
+    const files = fs
+      .readdirSync(excelsDir)
+      .filter((f) => f.toLowerCase().endsWith('.xlsx') && !f.startsWith('~$'))
+      .map((filename) => {
+        const fullPath = path.join(excelsDir, filename);
+        const stat = fs.statSync(fullPath);
+        return {
+          filename,
+          fullPath,
+          sizeBytes: stat.size,
+          createdAt: stat.birthtime || stat.mtime,
+          modifiedAt: stat.mtime
+        };
+      })
+      .sort((a, b) => new Date(b.modifiedAt) - new Date(a.modifiedAt));
+
+    res.json({
+      success: true,
+      folderPath: excelsDir,
+      files
+    });
+  } catch (err) {
+    console.error('Error listando Excels:', err);
+    res.status(500).json({ error: 'Error al leer la carpeta de archivos Excel.' });
+  }
+});
+
+/**
+ * 10. POST /api/excels/:filename/open -> Opens the Excel file natively on the PC (Microsoft Excel / default app)
+ */
+app.post('/api/excels/:filename/open', (req, res) => {
+  const safeFilename = path.basename(req.params.filename);
+  const filePath = path.join(excelsDir, safeFilename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Archivo Excel no encontrado en la carpeta local.' });
+  }
+
+  // Launch the file with the default OS handler on Windows/macOS/Linux
+  const cmd =
+    process.platform === 'win32'
+      ? `cmd /c start "" "${filePath}"`
+      : process.platform === 'darwin'
+      ? `open "${filePath}"`
+      : `xdg-open "${filePath}"`;
+
+  exec(cmd, (err) => {
+    if (err) {
+      console.error('Error abriendo archivo Excel en la PC:', err);
+      return res.status(500).json({ error: 'No se pudo abrir el archivo Excel en el sistema.' });
+    }
+    res.json({ success: true, opened: filePath });
+  });
+});
+
+/**
+ * 11. POST /api/excels/open-folder -> Opens the local excels/ folder in Windows Explorer
+ */
+app.post('/api/excels/open-folder', (req, res) => {
+  const cmd =
+    process.platform === 'win32'
+      ? `explorer.exe "${excelsDir}"`
+      : process.platform === 'darwin'
+      ? `open "${excelsDir}"`
+      : `xdg-open "${excelsDir}"`;
+
+  exec(cmd, () => {
+    res.json({ success: true, folderPath: excelsDir });
+  });
+});
+
+/**
+ * 12. GET /api/excels/:filename/preview -> Reads the sheets and rows of a local Excel file for the in-app viewer
+ */
+app.get('/api/excels/:filename/preview', async (req, res) => {
+  const safeFilename = path.basename(req.params.filename);
+  const filePath = path.join(excelsDir, safeFilename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Archivo Excel no encontrado.' });
+  }
+
+  try {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+
+    const sheets = [];
+    workbook.eachSheet((worksheet) => {
+      const headers = [];
+      const rows = [];
+
+      worksheet.eachRow((row, rowNumber) => {
+        const values = [];
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          let val = cell.value;
+          if (val && typeof val === 'object') {
+            val = val.text || val.hyperlink || JSON.stringify(val);
+          }
+          values[colNumber - 1] = val != null ? String(val) : '';
+        });
+
+        if (rowNumber === 1) {
+          headers.push(...values);
+        } else if (rows.length < 250) {
+          rows.push(values);
+        }
+      });
+
+      sheets.push({
+        name: worksheet.name,
+        totalRows: Math.max(0, worksheet.rowCount - 1),
+        headers,
+        rows
+      });
+    });
+
+    res.json({
+      success: true,
+      filename: safeFilename,
+      fullPath: filePath,
+      sheets
+    });
+  } catch (err) {
+    console.error('Error previsualizando Excel:', err);
+    res.status(500).json({ error: 'No se pudo leer el contenido del Excel.' });
+  }
+});
+
+/**
+ * 13. DELETE /api/excels/:filename -> Deletes a local Excel file
+ */
+app.delete('/api/excels/:filename', (req, res) => {
+  const safeFilename = path.basename(req.params.filename);
+  const filePath = path.join(excelsDir, safeFilename);
+
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+  res.json({ success: true });
+});
+
+/**
+ * 14. GET /api/scrape-stream -> SSE Stream endpoint for real-time Google Maps API scraping
  */
 app.get('/api/scrape-stream', async (req, res) => {
-  const { query, sectionName, targetSectionId, limit, headful, infinite, countryCode } = req.query;
+  const { query, sectionName, targetSectionId, limit, infinite, countryCode } = req.query;
 
   if (!query || !query.trim()) {
     res.status(400).json({ error: 'Falta el parámetro de búsqueda (query).' });
@@ -264,20 +436,20 @@ app.get('/api/scrape-stream', async (req, res) => {
   }
 
   const isInfinite = infinite === 'true';
-  const limitNum = parseInt(limit, 10) || 20;
-  const showBrowser = headful === 'true';
+  const limitNum = parseInt(limit, 10) || 50;
 
   const dbInit = readDb();
-  const activeCountryCode = (countryCode || dbInit.settings.defaultCountryCode || '54').replace(/\D/g, '') || '54';
+  const activeCountryCode =
+    (countryCode || dbInit.settings.defaultCountryCode || '54').replace(/\D/g, '') || '54';
 
   // Find or create the dedicated section for this search
   let activeSection = null;
   if (targetSectionId && targetSectionId !== 'new') {
-    activeSection = dbInit.sections.find(s => s.id === targetSectionId);
+    activeSection = dbInit.sections.find((s) => s.id === targetSectionId);
   }
 
   if (!activeSection) {
-    const cleanSecName = (sectionName && sectionName.trim()) ? sectionName.trim() : query.trim();
+    const cleanSecName = sectionName && sectionName.trim() ? sectionName.trim() : query.trim();
     activeSection = {
       id: `sec_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       name: cleanSecName,
@@ -300,7 +472,6 @@ app.get('/api/scrape-stream', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  let browserInstance = null;
   let clientConnected = true;
   const scrapedData = [];
 
@@ -317,24 +488,23 @@ app.get('/api/scrape-stream', async (req, res) => {
     res.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
   };
 
-  // Notify frontend immediately which section is storing these contacts
   sendEvent('section_created', { section: activeSection });
 
   const logCallback = (message) => {
-    console.log(`[Maps Scraper] ${message}`);
+    console.log(`[Maps API] ${message}`);
     sendEvent('log', { message });
   };
 
-  // Save each scraped business immediately to the dedicated section on disk
   const resultsCallback = async (item) => {
     scrapedData.push(item);
 
     const db = readDb();
-    const sec = db.sections.find(s => s.id === activeSectionId);
+    const sec = db.sections.find((s) => s.id === activeSectionId);
     if (sec) {
       const exists = sec.contacts.some(
-        c => (c.mapsUrl && item.mapsUrl && c.mapsUrl === item.mapsUrl) ||
-             (c.name.toLowerCase() === item.name.toLowerCase() && c.phone === item.phone)
+        (c) =>
+          (c.mapsUrl && item.mapsUrl && c.mapsUrl === item.mapsUrl) ||
+          (c.name.toLowerCase() === item.name.toLowerCase() && c.phone === item.phone)
       );
       if (!exists) {
         sec.contacts.push(item);
@@ -350,32 +520,17 @@ app.get('/api/scrape-stream', async (req, res) => {
     });
   };
 
-  req.on('close', async () => {
+  req.on('close', () => {
     clientConnected = false;
     clearInterval(heartbeatInterval);
-    if (browserInstance) {
-      try {
-        await browserInstance.close();
-        console.log('Navegador Playwright cerrado tras desconexión del cliente.');
-      } catch (err) {
-        console.error('Error cerrando navegador:', err);
-      }
-    }
   });
 
   try {
-    const searchDescription = isInfinite
-      ? `Iniciando búsqueda continua en Google Maps para: "${query}" (Sección: "${activeSection.name}")`
-      : `Iniciando búsqueda en Google Maps para: "${query}" (Límite: ${limitNum} comercios | Sección: "${activeSection.name}")`;
-    logCallback(searchDescription);
-
     const results = await scrapeGoogleMaps({
       query: query.trim(),
       limit: limitNum,
       logCallback,
       resultsCallback,
-      headful: showBrowser,
-      onBrowserCreated: (browser) => { browserInstance = browser; },
       isAborted: () => !clientConnected,
       isInfinite,
       countryCode: activeCountryCode
@@ -390,27 +545,28 @@ app.get('/api/scrape-stream', async (req, res) => {
       return;
     }
 
-    logCallback(`Generando archivo Excel descargable con ${results.length} comercios...`);
-    const sanitizedQuery = query.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 22);
+    logCallback(`Guardando archivo Excel en carpeta local con ${results.length} comercios...`);
+    const sanitizedQuery = query.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 25);
     const filename = `maps_${sanitizedQuery}_${Date.now()}.xlsx`;
-    const filePath = path.join(tempDir, filename);
+    const filePath = path.join(excelsDir, filename);
 
     await generateExcel(results, filePath);
 
-    // Update section's excelFilename in DB
     const dbFinal = readDb();
-    const secFinal = dbFinal.sections.find(s => s.id === activeSectionId);
+    const secFinal = dbFinal.sections.find((s) => s.id === activeSectionId);
     if (secFinal) {
       secFinal.excelFilename = filename;
       secFinal.updatedAt = new Date().toISOString();
       writeDb(dbFinal);
     }
 
-    logCallback(`✅ ¡Búsqueda finalizada! Los ${results.length} contactos quedaron guardados en la sección "${activeSection.name}" y el Excel está listo.`);
+    logCallback(
+      `✅ ¡Listo! ${results.length} comercios guardados en "${activeSection.name}" y en excels/${filename}.`
+    );
     sendEvent('complete', { filename, sectionId: activeSectionId });
     res.end();
   } catch (error) {
-    console.error('Error durante el streaming de scraping:', error);
+    console.error('Error durante la búsqueda:', error);
     logCallback(`Error crítico: ${error.message}`);
     sendEvent('complete', { error: error.message, sectionId: activeSectionId });
     res.end();
@@ -418,27 +574,29 @@ app.get('/api/scrape-stream', async (req, res) => {
 });
 
 /**
- * 10. GET /api/download/:filename -> Excel download endpoint
+ * 15. GET /api/download/:filename -> Excel download endpoint
  */
 app.get('/api/download/:filename', (req, res) => {
   const { filename } = req.params;
   const safeFilename = path.basename(filename);
-  const filePath = path.join(tempDir, safeFilename);
+  const filePath = path.join(excelsDir, safeFilename);
+  const fallbackTempPath = path.join(tempDir, safeFilename);
 
-  if (fs.existsSync(filePath)) {
-    res.download(filePath, safeFilename, (err) => {
-      if (err) {
-        console.error('Error enviando archivo:', err);
-        res.status(500).send('Error al descargar el archivo.');
-      }
-    });
+  const targetPath = fs.existsSync(filePath)
+    ? filePath
+    : fs.existsSync(fallbackTempPath)
+    ? fallbackTempPath
+    : null;
+
+  if (targetPath) {
+    res.download(targetPath, safeFilename);
   } else {
     res.status(404).send('Archivo Excel no encontrado.');
   }
 });
 
 /**
- * 11. POST /api/export-excel -> Generate Excel from arbitrary results payload (e.g. after stopping mid-search)
+ * 16. POST /api/export-excel -> Generate Excel from arbitrary results payload
  */
 app.post('/api/export-excel', async (req, res) => {
   const { results, query, sectionId } = req.body;
@@ -448,29 +606,32 @@ app.post('/api/export-excel', async (req, res) => {
   }
 
   try {
-    const sanitizedQuery = (query || 'busqueda').toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 22);
+    const sanitizedQuery = (query || 'busqueda')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '_')
+      .substring(0, 25);
     const filename = `maps_${sanitizedQuery}_${Date.now()}.xlsx`;
-    const filePath = path.join(tempDir, filename);
+    const filePath = path.join(excelsDir, filename);
 
     await generateExcel(results, filePath);
 
     if (sectionId) {
       const db = readDb();
-      const sec = db.sections.find(s => s.id === sectionId);
+      const sec = db.sections.find((s) => s.id === sectionId);
       if (sec) {
         sec.excelFilename = filename;
         writeDb(db);
       }
     }
 
-    res.json({ filename });
+    res.json({ filename, filePath });
   } catch (error) {
     console.error('Error generando Excel bajo demanda:', error);
     res.status(500).json({ error: 'Error al generar el reporte Excel.' });
   }
 });
 
-// Fallback to React app if URL doesn't match API endpoints
+// Fallback to React app
 app.get('*', (req, res) => {
   const indexPath = path.join(__dirname, 'frontend/dist/index.html');
   if (fs.existsSync(indexPath)) {
@@ -482,8 +643,9 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`========================================================`);
-  console.log(` 🚀 MAPS SCRAPER & WHATSAPP OUTREACH (MODO LOCAL)`);
+  console.log(` 🚀 MAPS SCRAPER & WHATSAPP OUTREACH (MODO LOCAL API)`);
   console.log(` 🌐 URL Local: http://localhost:${PORT}`);
+  console.log(` 📊 Carpeta Excels: ${excelsDir}`);
   console.log(` 💾 Base de datos local: ${dbFilePath}`);
   console.log(`========================================================`);
 });

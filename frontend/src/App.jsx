@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // ============================================================================
-// ICONOS MATERIAL (24x24, fill currentColor, trazados exactos de la especificación)
+// ICONOS MATERIAL (24x24, fill currentColor)
 // ============================================================================
 const ICON_PATHS = {
   pin: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z',
@@ -64,18 +64,6 @@ const COUNTRY_CHIP_OPTIONS = [
   { label: 'España +34', code: '34' }
 ];
 
-const LIMIT_CHIP_OPTIONS = [
-  { label: '25 comercios', limit: 25 },
-  { label: '50 comercios', limit: 50 },
-  { label: '100 comercios', limit: 100 },
-  { label: 'Sin límite', limit: null }
-];
-
-const BROWSER_CHIP_OPTIONS = [
-  { label: 'Navegador oculto', mode: 'headless', headful: false },
-  { label: 'Navegador visible', mode: 'headful', headful: true }
-];
-
 const SUGGESTION_ITEMS = [
   'Ferreterías en Caballito',
   'Gimnasios en Palermo',
@@ -99,20 +87,19 @@ export default function App() {
   // Estado principal de la pantalla: 'idle' | 'run' | 'done'
   const [pageState, setPageState] = useState('idle');
 
-  // Búsqueda y ajustes en chips
+  // Búsqueda y selector colapsable de tope dentro del buscador
   const [query, setQuery] = useState('');
   const [destIdx, setDestIdx] = useState(0);
   const [countryIdx, setCountryIdx] = useState(0);
   const [customLimit, setCustomLimit] = useState(50);
   const [isInfinite, setIsInfinite] = useState(false);
-  const [browserIdx, setBrowserIdx] = useState(0);
+  const [limitPickerOpen, setLimitPickerOpen] = useState(false);
 
-  // Alternadores de animación popA / popB para cada chip y el contador
+  // Alternadores de animación popA / popB
   const [chipFlip, setChipFlip] = useState({
     destino: false,
     pais: false,
-    cantidad: false,
-    navegador: false
+    cantidad: false
   });
   const [counterFlip, setCounterFlip] = useState(false);
   const [rowFlip, setRowFlip] = useState(false);
@@ -120,7 +107,7 @@ export default function App() {
   // Menú de 9 puntos y Panel Lateral
   const [menuAppsOpen, setMenuAppsOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  // Vista dentro del panel lateral: 'sections' | 'contacts' | 'template' | 'settings'
+  // Vista dentro del panel lateral: 'sections' | 'contacts' | 'excels' | 'template' | 'settings'
   const [drawerView, setDrawerView] = useState('sections');
 
   // Datos persistidos en el backend (secciones y configuración de WhatsApp)
@@ -130,6 +117,14 @@ export default function App() {
     '¡Hola {nombre}! 👋 Los encontré buscando *{rubro}* en Google Maps ({lugar}) y quería ponerme en contacto con ustedes.'
   );
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Visor de archivos Excel locales guardados en la carpeta excels/
+  const [excelFiles, setExcelFiles] = useState([]);
+  const [excelFolderPath, setExcelFolderPath] = useState('');
+  const [openingExcelName, setOpeningExcelName] = useState(null);
+  const [excelPreview, setExcelPreview] = useState(null);
+  const [activeSheetIdx, setActiveSheetIdx] = useState(0);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   // Resultados en vivo de la búsqueda actual
   const [liveResults, setLiveResults] = useState([]);
@@ -152,6 +147,7 @@ export default function App() {
   const simIntervalRef = useRef(null);
   const menuAppsRef = useRef(null);
   const menuBtnRef = useRef(null);
+  const limitPickerRef = useRef(null);
   const searchInputRef = useRef(null);
 
   // Opciones dinámicas para el chip "Destino"
@@ -169,7 +165,20 @@ export default function App() {
   const currentDest = destinationOptions[safeDestIdx] || destinationOptions[0];
   const currentCountry = COUNTRY_CHIP_OPTIONS[countryIdx] || COUNTRY_CHIP_OPTIONS[0];
   const effectiveLimit = Math.max(1, parseInt(customLimit, 10) || 50);
-  const currentBrowser = BROWSER_CHIP_OPTIONS[browserIdx] || BROWSER_CHIP_OPTIONS[0];
+
+  // Cargar lista de archivos Excel locales desde GET /api/excels
+  const fetchExcelFiles = async () => {
+    try {
+      const res = await fetch(`${backendUrl}/api/excels`);
+      const data = await res.json();
+      if (data.success) {
+        setExcelFiles(data.files || []);
+        setExcelFolderPath(data.folderPath || '');
+      }
+    } catch (err) {
+      console.error('Error cargando lista de Excels:', err);
+    }
+  };
 
   // Cargar secciones y configuración del backend al iniciar
   const fetchSectionsAndSettings = async (selectId = null) => {
@@ -205,17 +214,18 @@ export default function App() {
 
   useEffect(() => {
     fetchSectionsAndSettings();
+    fetchExcelFiles();
     return () => {
       if (eventSourceRef.current) eventSourceRef.current.close();
       if (simIntervalRef.current) clearInterval(simIntervalRef.current);
     };
   }, []);
 
-  // Cerrar menú de 9 puntos al hacer clic fuera
+  // Cerrar menú de 9 puntos y selector de tope al hacer clic fuera
   useEffect(() => {
-    if (!menuAppsOpen) return;
     const handleClickOutside = (e) => {
       if (
+        menuAppsOpen &&
         menuAppsRef.current &&
         !menuAppsRef.current.contains(e.target) &&
         menuBtnRef.current &&
@@ -223,10 +233,17 @@ export default function App() {
       ) {
         setMenuAppsOpen(false);
       }
+      if (
+        limitPickerOpen &&
+        limitPickerRef.current &&
+        !limitPickerRef.current.contains(e.target)
+      ) {
+        setLimitPickerOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [menuAppsOpen]);
+  }, [menuAppsOpen, limitPickerOpen]);
 
   const addLog = (text) => {
     const time = new Date().toLocaleTimeString('es-AR');
@@ -234,7 +251,10 @@ export default function App() {
   };
 
   // Guardar configuración global (plantilla WhatsApp y código de país)
-  const handleSaveSettings = async (newTemplate = whatsappTemplate, newCountryCode = currentCountry.code) => {
+  const handleSaveSettings = async (
+    newTemplate = whatsappTemplate,
+    newCountryCode = currentCountry.code
+  ) => {
     setSavingSettings(true);
     try {
       await fetch(`${backendUrl}/api/settings`, {
@@ -262,8 +282,6 @@ export default function App() {
       const nextIdx = (countryIdx + 1) % COUNTRY_CHIP_OPTIONS.length;
       setCountryIdx(nextIdx);
       handleSaveSettings(whatsappTemplate, COUNTRY_CHIP_OPTIONS[nextIdx].code);
-    } else if (chipKey === 'navegador') {
-      setBrowserIdx((prev) => (prev + 1) % BROWSER_CHIP_OPTIONS.length);
     }
   };
 
@@ -274,7 +292,7 @@ export default function App() {
     setLiveResults((prev) => [...prev, item]);
   };
 
-  // Simulación de respaldo o demostración (420 ms por comercio según especificación)
+  // Simulación de respaldo o demostración (420 ms por comercio)
   const startSimulationRun = (effectiveQuery, maxItems) => {
     let count = 0;
     const targetLimit = maxItems || 50;
@@ -309,7 +327,7 @@ export default function App() {
     }, 420);
   };
 
-  // Iniciar búsqueda (GET /api/scrape-stream o simulación)
+  // Iniciar búsqueda (GET /api/scrape-stream vía API de Google Maps)
   const handleStartSearch = () => {
     const effectiveQuery = query.trim() || 'Ferreterías en Caballito';
     if (!query.trim()) {
@@ -317,6 +335,7 @@ export default function App() {
     }
 
     setMenuAppsOpen(false);
+    setLimitPickerOpen(false);
     setPageState('run');
     setLiveResults([]);
     setDownloadFilename(null);
@@ -340,7 +359,6 @@ export default function App() {
       sectionName,
       targetSectionId,
       limit: String(effectiveLimit),
-      headful: String(currentBrowser.headful),
       infinite: String(isInfinite),
       countryCode: currentCountry.code
     });
@@ -374,6 +392,7 @@ export default function App() {
             setActiveSectionId(data.sectionId);
           }
           fetchSectionsAndSettings(data.sectionId);
+          fetchExcelFiles();
         }
       } catch (err) {
         console.error('Error SSE:', err);
@@ -385,6 +404,7 @@ export default function App() {
       eventSourceRef.current = null;
       setPageState((prev) => (prev === 'run' ? 'done' : prev));
       fetchSectionsAndSettings();
+      fetchExcelFiles();
     };
   };
 
@@ -415,6 +435,7 @@ export default function App() {
         const data = await res.json();
         if (data.filename) {
           setDownloadFilename(data.filename);
+          fetchExcelFiles();
         }
       } catch (err) {
         console.error('Error generando Excel parcial:', err);
@@ -431,10 +452,78 @@ export default function App() {
     }
   };
 
-  // Descargar Excel de la búsqueda actual o de una sección
+  // Abrir un archivo Excel directamente en el sistema (Microsoft Excel / app predeterminada)
+  const handleOpenExcelOnPc = async (filename, e) => {
+    if (e) e.stopPropagation();
+    setOpeningExcelName(filename);
+    try {
+      const res = await fetch(
+        `${backendUrl}/api/excels/${encodeURIComponent(filename)}/open`,
+        { method: 'POST' }
+      );
+      const data = await res.json();
+      if (!data.success) {
+        // Fallback: descargar si no hay lector instalado
+        window.open(`${backendUrl}/api/download/${encodeURIComponent(filename)}`, '_blank');
+      }
+    } catch (err) {
+      window.open(`${backendUrl}/api/download/${encodeURIComponent(filename)}`, '_blank');
+    } finally {
+      setTimeout(() => setOpeningExcelName(null), 1200);
+    }
+  };
+
+  // Abrir la carpeta local excels/ en el Explorador de Windows
+  const handleOpenExcelsFolder = async () => {
+    try {
+      await fetch(`${backendUrl}/api/excels/open-folder`, { method: 'POST' });
+    } catch (err) {
+      console.error('Error abriendo carpeta de Excels:', err);
+    }
+  };
+
+  // Ver el contenido del Excel (hojas y filas) dentro del visor de la app
+  const handlePreviewExcelInApp = async (filename, e) => {
+    if (e) e.stopPropagation();
+    setLoadingPreview(true);
+    setActiveSheetIdx(0);
+    try {
+      const res = await fetch(
+        `${backendUrl}/api/excels/${encodeURIComponent(filename)}/preview`
+      );
+      const data = await res.json();
+      if (data.success) {
+        setExcelPreview(data);
+      }
+    } catch (err) {
+      alert('No se pudo previsualizar el archivo Excel.');
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  // Eliminar un archivo Excel local
+  const handleDeleteExcelFile = async (filename, e) => {
+    if (e) e.stopPropagation();
+    const ok = window.confirm(`¿Borrar el archivo Excel "${filename}" de tu carpeta local?`);
+    if (!ok) return;
+    try {
+      await fetch(`${backendUrl}/api/excels/${encodeURIComponent(filename)}`, {
+        method: 'DELETE'
+      });
+      if (excelPreview?.filename === filename) {
+        setExcelPreview(null);
+      }
+      fetchExcelFiles();
+    } catch (err) {
+      alert('Error eliminando archivo Excel.');
+    }
+  };
+
+  // Abrir o descargar Excel de la búsqueda en vivo
   const handleDownloadLiveExcel = async () => {
     if (downloadFilename) {
-      window.open(`${backendUrl}/api/download/${downloadFilename}`, '_blank');
+      await handleOpenExcelOnPc(downloadFilename);
       return;
     }
     const targetSecId = lastScrapedSectionId || activeSectionId;
@@ -446,7 +535,8 @@ export default function App() {
         const data = await res.json();
         if (data.filename) {
           setDownloadFilename(data.filename);
-          window.open(`${backendUrl}/api/download/${data.filename}`, '_blank');
+          await fetchExcelFiles();
+          await handleOpenExcelOnPc(data.filename);
           return;
         }
       } catch (err) {
@@ -467,7 +557,8 @@ export default function App() {
         const data = await res.json();
         if (data.filename) {
           setDownloadFilename(data.filename);
-          window.open(`${backendUrl}/api/download/${data.filename}`, '_blank');
+          await fetchExcelFiles();
+          await handleOpenExcelOnPc(data.filename);
         }
       } catch (err) {
         alert('No se pudo generar el Excel.');
@@ -475,7 +566,7 @@ export default function App() {
     }
   };
 
-  // Descargar Excel de una sección específica desde el panel lateral
+  // Generar y abrir Excel de una sección específica
   const handleDownloadSectionExcel = async (section, e) => {
     if (e) e.stopPropagation();
     if (!section.contacts || section.contacts.length === 0) {
@@ -489,11 +580,12 @@ export default function App() {
       });
       const data = await res.json();
       if (data.filename) {
-        window.open(`${backendUrl}/api/download/${data.filename}`, '_blank');
+        await fetchExcelFiles();
+        await handleOpenExcelOnPc(data.filename);
         fetchSectionsAndSettings(activeSectionId);
       }
     } catch (err) {
-      alert('Error al descargar el Excel de la sección.');
+      alert('Error al generar el Excel de la sección.');
     } finally {
       setExportingSectionId(null);
     }
@@ -631,13 +723,17 @@ export default function App() {
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
   };
 
-  // Abrir panel lateral en vista de secciones o de contactos
+  // Abrir panel lateral en vista de secciones, contactos o excels
   const openDrawer = (view = 'sections', sectionId = null) => {
     setMenuAppsOpen(false);
     if (sectionId) {
       setActiveSectionId(sectionId);
     }
     fetchSectionsAndSettings(sectionId || activeSectionId);
+    if (view === 'excels') {
+      fetchExcelFiles();
+      setExcelPreview(null);
+    }
     setDrawerView(view);
     setDrawerOpen(true);
   };
@@ -700,7 +796,7 @@ export default function App() {
     return true;
   });
 
-  // Formateo amigable de fecha para las tarjetas de sección
+  // Formateo amigable de fecha
   const formatSectionDate = (isoStr) => {
     if (!isoStr) return 'Hoy';
     try {
@@ -709,13 +805,25 @@ export default function App() {
       const isToday = date.toDateString() === now.toDateString();
       const timeStr = date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
       if (isToday) return `Hoy, ${timeStr}`;
-      return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+      return date.toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
     } catch {
       return 'Reciente';
     }
   };
 
-  // Mosaicos del menú de 9 puntos según especificación
+  const formatFileSize = (bytes = 0) => {
+    if (bytes < 1024) return `${bytes} B`;
+    const kb = bytes / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    return `${(kb / 1024).toFixed(2)} MB`;
+  };
+
+  // Mosaicos del menú de 9 puntos
   const appMenuTiles = [
     {
       etiqueta: 'Buscador',
@@ -744,18 +852,11 @@ export default function App() {
       onClick: () => openDrawer(sections.length > 0 ? 'contacts' : 'sections')
     },
     {
-      etiqueta: 'Excel',
+      etiqueta: 'Excels',
       icono: 'tabla',
       fondo: '#e6f4ea',
       color: '#137333',
-      onClick: () => {
-        setMenuAppsOpen(false);
-        if (liveResults.length > 0 || lastScrapedSectionId || activeSectionId) {
-          handleDownloadLiveExcel();
-        } else {
-          openDrawer('sections');
-        }
-      }
+      onClick: () => openDrawer('excels')
     },
     {
       etiqueta: 'Mensaje',
@@ -783,10 +884,26 @@ export default function App() {
       <header id="barra_superior" className="rise-1">
         <div id="estado_app">
           <span className="status-dot" aria-hidden="true" />
-          <span>App local</span>
+          <span>App local · API Google Maps</span>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Botón directo al Visor de Archivos Excel locales */}
+          <button
+            type="button"
+            id="boton_mis_secciones"
+            style={{ color: '#137333' }}
+            onClick={() => openDrawer('excels')}
+            title="Ver y abrir archivos Excel guardados en tu PC"
+          >
+            <MaterialIcon name="tabla" size={18} />
+            <span>Excels</span>
+            <span className="section-badge" style={{ backgroundColor: '#1e8e3e' }}>
+              {excelFiles.length}
+            </span>
+          </button>
+
+          {/* Botón Mis secciones */}
           <button
             id="boton_mis_secciones"
             type="button"
@@ -841,7 +958,7 @@ export default function App() {
         {/* 1. Título (Visible en idle) */}
         <h1 className="stage-title rise-2">¿Qué comercios buscamos?</h1>
 
-        {/* 2. Buscador Pastilla de 64px con borde conic-gradient */}
+        {/* 2. Buscador Pastilla de 64px con selector de tope colapsable en un solo botón */}
         <div className="search-pill-outer rise-3">
           <div className="search-pill-inner">
             <MaterialIcon
@@ -870,56 +987,84 @@ export default function App() {
               aria-label="Buscar comercios"
             />
 
-            {/* Botones de límite e infinito integrados en el mismo buscador */}
-            <div className="in-search-limits" role="group" aria-label="Límite de comercios a buscar">
-              {[25, 50, 100].map((preset) => (
+            {/* Seleccionador de Tope / Infinito que se cierra en un único botón con el valor elegido */}
+            <div ref={limitPickerRef} className="flex items-center">
+              {!limitPickerOpen ? (
                 <button
-                  key={preset}
                   type="button"
-                  className={`in-search-limit-btn ${
-                    !isInfinite && Number(customLimit) === preset ? 'active' : ''
-                  }`}
-                  onClick={() => {
-                    setIsInfinite(false);
-                    setCustomLimit(preset);
-                  }}
-                  title={`Tope de ${preset} comercios`}
+                  className="single-limit-btn"
+                  onClick={() => setLimitPickerOpen(true)}
+                  title="Tope de comercios a buscar (tocar para cambiar)"
+                  aria-label="Cambiar tope de comercios"
                 >
-                  {preset}
+                  <span style={{ fontSize: isInfinite ? '18px' : '14px', lineHeight: 1 }}>
+                    {isInfinite ? '∞' : effectiveLimit}
+                  </span>
                 </button>
-              ))}
+              ) : (
+                <div className="in-search-limits" role="group" aria-label="Seleccionar tope de comercios">
+                  {[25, 50, 100].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      className={`in-search-limit-btn ${
+                        !isInfinite && Number(customLimit) === preset ? 'active' : ''
+                      }`}
+                      onClick={() => {
+                        setIsInfinite(false);
+                        setCustomLimit(preset);
+                        setLimitPickerOpen(false);
+                      }}
+                      title={`Tope de ${preset} comercios`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
 
-              <input
-                type="number"
-                min="1"
-                max="5000"
-                value={customLimit}
-                onClick={() => setIsInfinite(false)}
-                onChange={(e) => {
-                  setIsInfinite(false);
-                  const val = e.target.value;
-                  setCustomLimit(val === '' ? '' : Math.max(1, parseInt(val, 10) || 1));
-                }}
-                onBlur={() => {
-                  if (!customLimit || Number(customLimit) < 1) setCustomLimit(50);
-                }}
-                aria-label="Tope personalizado de clientes"
-                title="Escribir tope personalizado de clientes"
-                className={`in-search-limit-input ${
-                  !isInfinite && ![25, 50, 100].includes(Number(customLimit)) ? 'active' : ''
-                }`}
-              />
+                  <input
+                    type="number"
+                    min="1"
+                    max="5000"
+                    value={customLimit}
+                    onClick={() => setIsInfinite(false)}
+                    onChange={(e) => {
+                      setIsInfinite(false);
+                      const val = e.target.value;
+                      setCustomLimit(val === '' ? '' : Math.max(1, parseInt(val, 10) || 1));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!customLimit || Number(customLimit) < 1) setCustomLimit(50);
+                        setLimitPickerOpen(false);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!customLimit || Number(customLimit) < 1) setCustomLimit(50);
+                    }}
+                    aria-label="Tope personalizado"
+                    title="Escribí un número y presioná Enter"
+                    className={`in-search-limit-input ${
+                      !isInfinite && ![25, 50, 100].includes(Number(customLimit)) ? 'active' : ''
+                    }`}
+                  />
 
-              <button
-                type="button"
-                className={`in-search-limit-btn ${isInfinite ? 'active' : ''}`}
-                onClick={() => setIsInfinite(true)}
-                title="Infinitos hasta que ya no encuentre más comercios"
-                aria-label="Infinitos sin límite"
-                style={{ fontSize: '16px' }}
-              >
-                ∞
-              </button>
+                  <button
+                    type="button"
+                    className={`in-search-limit-btn ${isInfinite ? 'active' : ''}`}
+                    onClick={() => {
+                      setIsInfinite(true);
+                      setLimitPickerOpen(false);
+                    }}
+                    title="Infinitos hasta que ya no encuentre más comercios"
+                    aria-label="Infinitos sin límite"
+                    style={{ fontSize: '16px' }}
+                  >
+                    ∞
+                  </button>
+                </div>
+              )}
             </div>
 
             <button
@@ -1002,7 +1147,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 {pageState === 'run' && (
                   <button
                     type="button"
@@ -1018,9 +1163,9 @@ export default function App() {
                     <button
                       type="button"
                       className="btn-tonal"
-                      onClick={handleDownloadLiveExcel}
+                      onClick={() => openDrawer('excels')}
                     >
-                      Descargar Excel
+                      Abrir Visor Excels
                     </button>
                     <button
                       type="button"
@@ -1175,9 +1320,11 @@ export default function App() {
       <aside
         id="panel_secciones"
         className={`${drawerOpen ? 'open' : ''} ${
-          drawerView === 'contacts' ? 'expanded' : ''
+          drawerView === 'contacts' || (drawerView === 'excels' && excelPreview)
+            ? 'expanded'
+            : ''
         }`}
-        aria-label="Panel lateral de secciones y herramientas"
+        aria-label="Panel lateral de secciones y archivos Excel"
       >
         {/* ---------------------------------------------------------------- */}
         {/* VISTA 1 DEL PANEL: LISTADO DE MIS SECCIONES                      */}
@@ -1198,7 +1345,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Botón Nueva sección (tonal, ancho completo, pastilla) */}
             <button
               type="button"
               className="btn-tonal w-full mb-4"
@@ -1209,7 +1355,6 @@ export default function App() {
               <span>Nueva sección</span>
             </button>
 
-            {/* Lista de tarjetas de sección */}
             <div className="flex-1 overflow-y-auto space-y-3 pr-1">
               {sections.length === 0 ? (
                 <div
@@ -1284,7 +1429,6 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* 3 acciones de sección: Renombrar, Descargar Excel, Borrar sección */}
                         <div className="flex items-center gap-0.5 flex-shrink-0">
                           <button
                             type="button"
@@ -1303,8 +1447,8 @@ export default function App() {
                           <button
                             type="button"
                             className="card-icon-btn"
-                            aria-label="Descargar Excel"
-                            title="Descargar Excel"
+                            aria-label="Generar y abrir Excel"
+                            title="Generar y abrir Excel de esta sección"
                             disabled={exportingSectionId === sec.id}
                             onClick={(e) => handleDownloadSectionExcel(sec, e)}
                           >
@@ -1323,7 +1467,6 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Barra de progreso verde de 6px */}
                       <div
                         className="w-full overflow-hidden mt-3 mb-2"
                         style={{
@@ -1366,7 +1509,291 @@ export default function App() {
         )}
 
         {/* ---------------------------------------------------------------- */}
-        {/* VISTA 2 DEL PANEL: CONTACTOS DE LA SECCIÓN & WHATSAPP OUTREACH   */}
+        {/* VISTA 2 DEL PANEL: VISOR DE ARCHIVOS EXCEL EN CARPETA LOCAL      */}
+        {/* ---------------------------------------------------------------- */}
+        {drawerView === 'excels' && (
+          <>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2 min-w-0">
+                {excelPreview && (
+                  <button
+                    type="button"
+                    className="btn-tonal"
+                    style={{ height: '36px', padding: '0 14px', fontSize: '13px' }}
+                    onClick={() => setExcelPreview(null)}
+                  >
+                    ← Archivos
+                  </button>
+                )}
+                <h2
+                  className="truncate"
+                  style={{ fontSize: '20px', fontWeight: 500, margin: 0 }}
+                >
+                  {excelPreview ? excelPreview.filename : 'Archivos Excel locales'}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                className="card-icon-btn"
+                aria-label="Cerrar"
+                onClick={closeAllOverlays}
+              >
+                <MaterialIcon name="cerrar" size={22} />
+              </button>
+            </div>
+
+            {!excelPreview ? (
+              <>
+                {/* Ruta de carpeta local y botón para abrir la carpeta en Windows */}
+                <div
+                  className="rounded-[18px] p-3 mb-4 flex items-center justify-between gap-2"
+                  style={{ backgroundColor: '#f8f9fa', border: '1px solid #e8eaed' }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div style={{ fontSize: '11px', fontWeight: 500, color: '#5f6368' }}>
+                      Carpeta local de Excels
+                    </div>
+                    <div
+                      className="truncate"
+                      style={{ fontSize: '12px', color: '#1f1f1f' }}
+                      title={excelFolderPath}
+                    >
+                      {excelFolderPath || 'excels/'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-tonal"
+                    style={{ height: '34px', padding: '0 12px', fontSize: '12px' }}
+                    onClick={handleOpenExcelsFolder}
+                  >
+                    <MaterialIcon name="carpeta" size={16} />
+                    <span>Abrir carpeta</span>
+                  </button>
+                </div>
+
+                <p style={{ fontSize: '13px', color: '#5f6368', margin: '0 0 12px 0' }}>
+                  Tocá cualquier archivo Excel de la lista para <strong>abrirlo directamente en tu PC</strong>:
+                </p>
+
+                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                  {excelFiles.length === 0 ? (
+                    <div
+                      className="text-center py-12 px-4 rounded-[20px]"
+                      style={{ border: '1px dashed #dadce0', color: '#5f6368' }}
+                    >
+                      <p style={{ fontSize: '14px', margin: '0 0 6px 0', color: '#1f1f1f' }}>
+                        Aún no hay archivos Excel en la carpeta local
+                      </p>
+                      <p style={{ fontSize: '13px', margin: 0 }}>
+                        Al completar o exportar cualquier búsqueda, tus archivos <code>.xlsx</code> aparecerán acá listos para abrir con un clic.
+                      </p>
+                    </div>
+                  ) : (
+                    excelFiles.map((file) => {
+                      const isOpening = openingExcelName === file.filename;
+                      return (
+                        <div
+                          key={file.filename}
+                          className="section-card"
+                          onClick={(e) => handleOpenExcelOnPc(file.filename, e)}
+                          title="Clic para abrir este Excel directamente en tu PC"
+                          style={
+                            isOpening
+                              ? { borderColor: '#1e8e3e', backgroundColor: '#e6f4ea' }
+                              : {}
+                          }
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <span
+                                className="business-avatar"
+                                style={{
+                                  backgroundColor: '#e6f4ea',
+                                  color: '#137333'
+                                }}
+                              >
+                                <MaterialIcon name="tabla" size={20} />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div
+                                  className="truncate"
+                                  style={{
+                                    fontSize: '14px',
+                                    fontWeight: 500,
+                                    color: '#1f1f1f'
+                                  }}
+                                >
+                                  {file.filename}
+                                </div>
+                                <div style={{ fontSize: '12px', color: '#5f6368', marginTop: '2px' }}>
+                                  {isOpening
+                                    ? '✓ Abriendo en Excel en tu PC…'
+                                    : `${formatSectionDate(file.modifiedAt)} · ${formatFileSize(
+                                        file.sizeBytes
+                                      )}`}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button
+                                type="button"
+                                className="card-icon-btn"
+                                title="Ver tabla aquí dentro de la app"
+                                aria-label="Ver tabla en la app"
+                                onClick={(e) => handlePreviewExcelInApp(file.filename, e)}
+                              >
+                                <MaterialIcon name="ojo" size={18} />
+                              </button>
+                              <button
+                                type="button"
+                                className="card-icon-btn"
+                                title="Descargar copia"
+                                aria-label="Descargar copia"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(
+                                    `${backendUrl}/api/download/${encodeURIComponent(
+                                      file.filename
+                                    )}`,
+                                    '_blank'
+                                  );
+                                }}
+                              >
+                                <MaterialIcon name="descargar" size={18} />
+                              </button>
+                              <button
+                                type="button"
+                                className="card-icon-btn danger"
+                                title="Borrar archivo Excel"
+                                aria-label="Borrar archivo Excel"
+                                onClick={(e) => handleDeleteExcelFile(file.filename, e)}
+                              >
+                                <MaterialIcon name="borrar" size={18} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            ) : (
+              /* Vista de tabla interna cuando el usuario toca el ícono de ojo en un Excel */
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                  <div className="flex flex-wrap gap-1.5">
+                    {(excelPreview.sheets || []).map((sh, idx) => (
+                      <button
+                        key={sh.name}
+                        type="button"
+                        onClick={() => setActiveSheetIdx(idx)}
+                        className="px-3 py-1 rounded-full text-xs font-medium cursor-pointer"
+                        style={
+                          activeSheetIdx === idx
+                            ? {
+                                backgroundColor: '#e6f4ea',
+                                color: '#137333',
+                                border: '1px solid #a8dab5'
+                              }
+                            : {
+                                backgroundColor: '#ffffff',
+                                color: '#3c4043',
+                                border: '1px solid #dadce0'
+                              }
+                        }
+                      >
+                        {sh.name} ({sh.totalRows})
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    style={{
+                      height: '34px',
+                      padding: '0 14px',
+                      fontSize: '12px',
+                      backgroundColor: '#1e8e3e'
+                    }}
+                    onClick={() => handleOpenExcelOnPc(excelPreview.filename)}
+                  >
+                    Abrir en Microsoft Excel
+                  </button>
+                </div>
+
+                {loadingPreview ? (
+                  <div className="py-12 text-center" style={{ color: '#5f6368', fontSize: '14px' }}>
+                    Cargando hojas del Excel…
+                  </div>
+                ) : (
+                  <div
+                    className="flex-1 overflow-auto rounded-[16px]"
+                    style={{ border: '1px solid #dadce0' }}
+                  >
+                    {(() => {
+                      const sheet =
+                        excelPreview.sheets?.[activeSheetIdx] || excelPreview.sheets?.[0];
+                      if (!sheet) return null;
+                      return (
+                        <table
+                          className="w-full text-left border-collapse"
+                          style={{ fontSize: '12px' }}
+                        >
+                          <thead>
+                            <tr style={{ backgroundColor: '#f1f3f4' }}>
+                              {sheet.headers.map((h, i) => (
+                                <th
+                                  key={i}
+                                  className="px-3 py-2 font-medium whitespace-nowrap"
+                                  style={{
+                                    borderBottom: '1px solid #dadce0',
+                                    color: '#1f1f1f'
+                                  }}
+                                >
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sheet.rows.map((row, rIdx) => (
+                              <tr
+                                key={rIdx}
+                                style={{
+                                  backgroundColor: rIdx % 2 === 0 ? '#ffffff' : '#f8f9fa',
+                                  borderBottom: '1px solid #e8eaed'
+                                }}
+                              >
+                                {sheet.headers.map((_, cIdx) => (
+                                  <td
+                                    key={cIdx}
+                                    className="px-3 py-2 max-w-[200px] truncate"
+                                    style={{ color: '#3c4043' }}
+                                    title={row[cIdx] || ''}
+                                  >
+                                    {row[cIdx] || ''}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ---------------------------------------------------------------- */}
+        {/* VISTA 3 DEL PANEL: CONTACTOS DE LA SECCIÓN & WHATSAPP OUTREACH   */}
         {/* ---------------------------------------------------------------- */}
         {drawerView === 'contacts' && (
           <>
@@ -1404,8 +1831,8 @@ export default function App() {
                     <button
                       type="button"
                       className="card-icon-btn"
-                      aria-label="Descargar Excel"
-                      title="Descargar Excel de esta sección"
+                      aria-label="Generar y abrir Excel"
+                      title="Generar y abrir Excel de esta sección"
                       onClick={(e) => handleDownloadSectionExcel(activeSection, e)}
                     >
                       <MaterialIcon name="descargar" size={18} />
@@ -1519,7 +1946,12 @@ export default function App() {
                   let presenceKey = contact.digitalStatus || 'sin_web';
                   if (!DIGITAL_PRESENCE_TAGS[presenceKey]) {
                     if (contact.website) presenceKey = 'web_propia';
-                    else if (contact.instagram || contact.facebook || contact.tiktok || contact.linkedin)
+                    else if (
+                      contact.instagram ||
+                      contact.facebook ||
+                      contact.tiktok ||
+                      contact.linkedin
+                    )
                       presenceKey = 'solo_redes';
                     else presenceKey = 'sin_web';
                   }
@@ -1536,7 +1968,6 @@ export default function App() {
                         backgroundColor: contact.contacted ? '#f6fbf7' : '#ffffff'
                       }}
                     >
-                      {/* Cabecera de la tarjeta del comercio + botón borrar contacto individual */}
                       <div className="flex items-start justify-between gap-2 mb-3">
                         <div className="flex items-center gap-3 min-w-0">
                           <span
@@ -1580,7 +2011,6 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Borrar contacto individual */}
                         <button
                           type="button"
                           className="card-icon-btn danger"
@@ -1594,7 +2024,6 @@ export default function App() {
 
                       {/* GRILLA 2x2 DE BOTONES: Lugar, Teléfono, Página Web y Redes */}
                       <div className="grid grid-cols-2 gap-2 mb-3">
-                        {/* 1. Botón Lugar / Google Maps */}
                         <a
                           href={
                             contact.mapsUrl ||
@@ -1630,7 +2059,6 @@ export default function App() {
                           </div>
                         </a>
 
-                        {/* 2. Botón Número de contacto (copiar) */}
                         <button
                           type="button"
                           disabled={!contact.phone}
@@ -1661,7 +2089,6 @@ export default function App() {
                           </div>
                         </button>
 
-                        {/* 3. Botón Página Web */}
                         {contact.website ? (
                           <a
                             href={contact.website}
@@ -1713,7 +2140,6 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* 4. Botones de Redes Sociales y Email */}
                         <div
                           className="flex flex-col justify-center px-3 py-2 rounded-[14px]"
                           style={{
@@ -1721,7 +2147,14 @@ export default function App() {
                             backgroundColor: '#f8f9fa'
                           }}
                         >
-                          <div style={{ fontSize: '11px', fontWeight: 500, color: '#5f6368', marginBottom: '4px' }}>
+                          <div
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 500,
+                              color: '#5f6368',
+                              marginBottom: '4px'
+                            }}
+                          >
                             Redes sociales
                           </div>
                           <div className="flex flex-wrap gap-1">
@@ -1794,7 +2227,6 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Vista previa / edición rápida del mensaje de WhatsApp */}
                       <div
                         className="rounded-[14px] p-2.5 mb-3"
                         style={{ backgroundColor: '#f8f9fa', border: '1px solid #e8eaed' }}
@@ -1837,7 +2269,6 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* Acciones inferiores: Enviar WhatsApp y Marcar contactado */}
                       <div className="flex items-center gap-2">
                         {waUrl ? (
                           <a
@@ -1892,7 +2323,7 @@ export default function App() {
         )}
 
         {/* ---------------------------------------------------------------- */}
-        {/* VISTA 3 DEL PANEL: EDITOR DE PLANTILLA DE MENSAJE DE WHATSAPP    */}
+        {/* VISTA 4 DEL PANEL: EDITOR DE PLANTILLA DE MENSAJE DE WHATSAPP    */}
         {/* ---------------------------------------------------------------- */}
         {drawerView === 'template' && (
           <>
@@ -1975,7 +2406,7 @@ export default function App() {
         )}
 
         {/* ---------------------------------------------------------------- */}
-        {/* VISTA 4 DEL PANEL: AJUSTES Y REGISTRO DE ACTIVIDAD               */}
+        {/* VISTA 5 DEL PANEL: AJUSTES Y REGISTRO DE ACTIVIDAD               */}
         {/* ---------------------------------------------------------------- */}
         {drawerView === 'settings' && (
           <>
@@ -2013,7 +2444,7 @@ export default function App() {
                     <div style={{ fontSize: '13px', color: '#5f6368', marginTop: '2px' }}>
                       {simulationMode
                         ? 'Activado: simula comercios de prueba cada 420 ms'
-                        : 'Desactivado: usa el motor real de Google Maps (Playwright)'}
+                        : 'Desactivado: usa la API real de Google Maps'}
                     </div>
                   </div>
                   <input
@@ -2035,7 +2466,7 @@ export default function App() {
                     marginBottom: '8px'
                   }}
                 >
-                  Actividad reciente del motor ({logs.length})
+                  Actividad reciente de la API ({logs.length})
                 </div>
                 <div
                   className="rounded-[20px] p-3.5 overflow-y-auto space-y-1.5"

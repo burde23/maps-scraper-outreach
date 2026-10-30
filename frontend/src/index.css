@@ -308,7 +308,35 @@ select:focus-visible {
   color: var(--placeholder);
 }
 
-/* Botones de límite e infinito integrados dentro del mismo buscador */
+/* Botón único de tope (cerrado) y selector desplegado dentro del buscador */
+.single-limit-btn {
+  height: 40px;
+  min-width: 44px;
+  padding: 0 14px;
+  border-radius: 99px;
+  border: 1px solid var(--tonal-hover);
+  background: var(--tonal);
+  color: var(--sobre-tonal);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.2s var(--ease), transform 0.15s var(--ease);
+}
+
+.single-limit-btn:hover {
+  background: var(--tonal-hover);
+}
+
+.single-limit-btn:active {
+  transform: scale(0.95);
+}
+
 .in-search-limits {
   display: inline-flex;
   align-items: center;
@@ -317,6 +345,7 @@ select:focus-visible {
   padding: 4px;
   border-radius: 99px;
   flex-shrink: 0;
+  animation: popA 0.25s var(--ease);
 }
 
 .in-search-limit-btn {
