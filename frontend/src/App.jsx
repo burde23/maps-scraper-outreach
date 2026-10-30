@@ -99,11 +99,12 @@ export default function App() {
   // Estado principal de la pantalla: 'idle' | 'run' | 'done'
   const [pageState, setPageState] = useState('idle');
 
-  // Búsqueda y ajustes en chips rotativos
+  // Búsqueda y ajustes en chips
   const [query, setQuery] = useState('');
   const [destIdx, setDestIdx] = useState(0);
   const [countryIdx, setCountryIdx] = useState(0);
-  const [limitIdx, setLimitIdx] = useState(0);
+  const [customLimit, setCustomLimit] = useState(50);
+  const [isInfinite, setIsInfinite] = useState(false);
   const [browserIdx, setBrowserIdx] = useState(0);
 
   // Alternadores de animación popA / popB para cada chip y el contador
@@ -167,7 +168,7 @@ export default function App() {
   const safeDestIdx = destIdx < destinationOptions.length ? destIdx : 0;
   const currentDest = destinationOptions[safeDestIdx] || destinationOptions[0];
   const currentCountry = COUNTRY_CHIP_OPTIONS[countryIdx] || COUNTRY_CHIP_OPTIONS[0];
-  const currentLimit = LIMIT_CHIP_OPTIONS[limitIdx] || LIMIT_CHIP_OPTIONS[0];
+  const effectiveLimit = Math.max(1, parseInt(customLimit, 10) || 50);
   const currentBrowser = BROWSER_CHIP_OPTIONS[browserIdx] || BROWSER_CHIP_OPTIONS[0];
 
   // Cargar secciones y configuración del backend al iniciar
@@ -261,8 +262,6 @@ export default function App() {
       const nextIdx = (countryIdx + 1) % COUNTRY_CHIP_OPTIONS.length;
       setCountryIdx(nextIdx);
       handleSaveSettings(whatsappTemplate, COUNTRY_CHIP_OPTIONS[nextIdx].code);
-    } else if (chipKey === 'cantidad') {
-      setLimitIdx((prev) => (prev + 1) % LIMIT_CHIP_OPTIONS.length);
     } else if (chipKey === 'navegador') {
       setBrowserIdx((prev) => (prev + 1) % BROWSER_CHIP_OPTIONS.length);
     }
@@ -278,7 +277,7 @@ export default function App() {
   // Simulación de respaldo o demostración (420 ms por comercio según especificación)
   const startSimulationRun = (effectiveQuery, maxItems) => {
     let count = 0;
-    const targetLimit = maxItems || 25;
+    const targetLimit = maxItems || 50;
 
     if (simIntervalRef.current) clearInterval(simIntervalRef.current);
     simIntervalRef.current = setInterval(() => {
@@ -323,12 +322,9 @@ export default function App() {
     setDownloadFilename(null);
     setLogs([]);
 
-    const isInfinite = currentLimit.limit === null;
-    const limitValue = currentLimit.limit || 25;
-
     if (simulationMode) {
       addLog(`Modo demostración (420ms): "${effectiveQuery}"`);
-      startSimulationRun(effectiveQuery, currentLimit.limit);
+      startSimulationRun(effectiveQuery, isInfinite ? null : effectiveLimit);
       return;
     }
 
@@ -343,7 +339,7 @@ export default function App() {
       query: effectiveQuery,
       sectionName,
       targetSectionId,
-      limit: String(limitValue),
+      limit: String(effectiveLimit),
       headful: String(currentBrowser.headful),
       infinite: String(isInfinite),
       countryCode: currentCountry.code
@@ -653,10 +649,9 @@ export default function App() {
 
   // Métricas e indicadores en vivo
   const liveCount = liveResults.length;
-  const progressPct =
-    currentLimit.limit === null
-      ? 100
-      : Math.min(100, Math.round((liveCount / currentLimit.limit) * 100));
+  const progressPct = isInfinite
+    ? 100
+    : Math.min(100, Math.round((liveCount / effectiveLimit) * 100));
 
   const countWithWhatsApp = liveResults.filter((r) =>
     Boolean(r.whatsappPhone || r.phone || r.whatsapp)
@@ -917,16 +912,52 @@ export default function App() {
             </span>
           </button>
 
-          {/* Chip 3: Cantidad */}
-          <button
-            type="button"
-            className="setting-chip"
-            aria-label="Cantidad: tocar para cambiar"
-            onClick={() => handleRotateChip('cantidad')}
+          {/* Chip 3A: Tope personalizable de clientes a contactar */}
+          <div
+            className={`limit-input-chip ${!isInfinite ? 'active-pill' : ''}`}
+            onClick={() => setIsInfinite(false)}
+            title="Escribí el tope exacto de clientes que querés recopilar"
           >
             <MaterialIcon name="lista" size={18} className="setting-chip-icon" />
+            <span>Tope:</span>
+            <input
+              type="number"
+              min="1"
+              max="5000"
+              value={customLimit}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsInfinite(false);
+              }}
+              onChange={(e) => {
+                setIsInfinite(false);
+                const val = e.target.value;
+                setCustomLimit(val === '' ? '' : Math.max(1, parseInt(val, 10) || 1));
+              }}
+              onBlur={() => {
+                if (!customLimit || Number(customLimit) < 1) setCustomLimit(50);
+              }}
+              aria-label="Tope de clientes a contactar"
+              className="limit-number-field"
+            />
+            <span>clientes</span>
+          </div>
+
+          {/* Chip 3B: Modo Infinitos (hasta que ya no encuentre más) */}
+          <button
+            type="button"
+            className={`setting-chip ${isInfinite ? 'active-pill' : ''}`}
+            aria-label="Infinitos hasta que ya no encuentre comercios"
+            onClick={() => {
+              setChipFlip((prev) => ({ ...prev, cantidad: !prev.cantidad }));
+              setIsInfinite((prev) => !prev);
+            }}
+          >
+            <span style={{ fontSize: '16px', fontWeight: 600, color: '#1a73e8', lineHeight: 1 }}>
+              ∞
+            </span>
             <span className={chipFlip.cantidad ? 'chip-val-a' : 'chip-val-b'}>
-              {currentLimit.label}
+              {isInfinite ? 'Infinitos (Activo)' : 'Infinitos (Sin tope)'}
             </span>
           </button>
 

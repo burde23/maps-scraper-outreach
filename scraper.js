@@ -14,7 +14,6 @@ export function cleanGlyphs(str) {
  * Normalizes a phone number into digits ready for https://wa.me/<digits>
  */
 export function normalizeWhatsAppPhone(rawPhone = '', whatsappUrl = '', defaultCountryCode = '54') {
-  // 1. If we already have a wa.me or api.whatsapp.com URL with phone=..., extract digits from it first
   if (whatsappUrl) {
     const waMatch = whatsappUrl.match(/(?:wa\.me\/|phone=)\+?(\d{8,15})/i);
     if (waMatch && waMatch[1]) {
@@ -30,28 +29,22 @@ export function normalizeWhatsAppPhone(rawPhone = '', whatsappUrl = '', defaultC
 
   const cc = (defaultCountryCode || '54').replace(/\D/g, '');
 
-  // If it already starts with the country code or had a leading '+'
   if (hasPlus) {
-    // Argentina mobile fix: +54 011 15-xxxx-xxxx or +54 11 xxxx-xxxx -> 549...
     if (digits.startsWith('54') && !digits.startsWith('549') && digits.length === 12) {
       return '549' + digits.slice(2);
     }
     return digits;
   }
 
-  // Remove leading 00 (international prefix)
   if (digits.startsWith('00')) {
     digits = digits.slice(2);
     return digits;
   }
 
-  // Country-specific local normalization when number doesn't include country code
   if (cc === '54') {
-    // Argentina: e.g. 011 4567-8901 or 011 15-4567-8901 or 11 4567-8901 or 0351 15-...
     if (digits.startsWith('549') && digits.length >= 12) return digits;
     if (digits.startsWith('54') && digits.length === 12) return '549' + digits.slice(2);
     if (digits.startsWith('0')) digits = digits.slice(1);
-    // Strip embedded '15' after area code (2, 3, or 4 digit area code)
     digits = digits.replace(/^(11|2\d{1,2}|3\d{1,3})15(\d{6,8})$/, '$1$2');
     if (digits.length === 10) {
       return '549' + digits;
@@ -60,7 +53,6 @@ export function normalizeWhatsAppPhone(rawPhone = '', whatsappUrl = '', defaultC
   }
 
   if (cc === '55') {
-    // Brazil: e.g. (48) 99999-9999
     if (digits.startsWith('55') && digits.length >= 12) return digits;
     if (digits.startsWith('0')) digits = digits.slice(1);
     return '55' + digits;
@@ -89,7 +81,7 @@ function makeAbsolute(baseUrl, relativeUrl) {
 }
 
 /**
- * Validates if an email string is standard and not a static asset / placeholder / telemetry.
+ * Validates if an email string is standard and not a static asset / placeholder.
  */
 function validateEmail(email) {
   if (!email || typeof email !== 'string') return false;
@@ -110,7 +102,7 @@ function validateEmail(email) {
     'info@example', 'wix.com', 'shopify.com', 'wordpress.org', 'select2', 'bootstrap',
     'font-awesome', 'jquery.com', 'github.com', 'mailinator.com', 'tempmail', 'yopmail',
     'guerrillamail', 'trashmail', '10minutemail', 'ejemplo.com', 'test.com', 'domain.com',
-    ' Cloudflare', ' schema.org', 'w3.org', 'google.com', 'googletagmanager'
+    'cloudflare', 'schema.org', 'w3.org', 'google.com', 'googletagmanager'
   ];
   if (placeholders.some(p => lower.includes(p.trim()))) return false;
 
@@ -151,7 +143,7 @@ function classifyWebsiteUrl(rawUrl) {
 }
 
 /**
- * Visits a website (and up to 2 contact subpages) to extract emails and social networks.
+ * Fast website contact & social network extractor (3s timeout, skips subpages if socials already found).
  */
 export async function scrapeWebsiteContacts(websiteUrl, logCallback = () => {}) {
   const contacts = {
@@ -171,11 +163,9 @@ export async function scrapeWebsiteContacts(websiteUrl, logCallback = () => {}) 
     targetUrl = 'http://' + targetUrl;
   }
 
-  // If the "website" on Google Maps is directly a social media profile or WhatsApp link, assign it directly
   const { isSocialOnly, socialType } = classifyWebsiteUrl(targetUrl);
   if (isSocialOnly && socialType) {
     contacts[socialType] = targetUrl;
-    logCallback(`  └─ El enlace web en Maps es directamente ${socialType.toUpperCase()}: ${targetUrl}`);
     return contacts;
   }
 
@@ -183,19 +173,18 @@ export async function scrapeWebsiteContacts(websiteUrl, logCallback = () => {}) 
   const visited = new Set();
 
   async function scrapePage(url) {
-    if (visited.has(url) || visited.size >= 3) return;
+    if (visited.has(url) || visited.size >= 2) return;
     visited.add(url);
 
     try {
-      logCallback(`  ├─ Escaneando web: ${url}`);
       const response = await axios.get(url, {
         headers: {
           'User-Agent': userAgent,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-          'Cache-Control': 'no-cache'
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
         },
-        timeout: 6000,
+        timeout: 3200,
+        maxContentLength: 2500000,
         validateStatus: false
       });
 
@@ -234,7 +223,7 @@ export async function scrapeWebsiteContacts(websiteUrl, logCallback = () => {}) 
         }
       });
 
-      // 3. Extract emails via regex on HTML & text
+      // 3. Extract emails via regex
       const sanitizedHtml = html.replace(/(\.(?:com|es|org|net|store|shop|online|site|app|dev|biz|info|tech|eu|uk|us|ca|ve|pe|uy|bo|py|co|io|cl|mx|ar|br))\b(?=[a-zA-Z])/gi, '$1 ');
       const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}\b/gi;
 
@@ -278,26 +267,33 @@ export async function scrapeWebsiteContacts(websiteUrl, logCallback = () => {}) 
         }
       });
 
-      // Follow up to 2 contact/about pages from homepage
-      if (url === targetUrl) {
-        const contactLinks = [];
+      // Only follow 1 contact subpage if we still haven't found socials or email on the homepage
+      const hasAnySocialOrEmail = Boolean(
+        contacts.instagram || contacts.facebook || contacts.whatsapp || contacts.email.length > 0
+      );
+
+      if (url === targetUrl && !hasAnySocialOrEmail) {
+        let bestContactLink = null;
         $('a[href]').each((_, el) => {
+          if (bestContactLink) return;
           const text = $(el).text().toLowerCase().trim();
           const href = $(el).attr('href') || '';
           const hrefLower = href.toLowerCase();
 
-          const matchTerms = ['contact', 'contacto', 'contato', 'nosotros', 'about', 'quienes', 'quiénes', 'ubicacion', 'sucursales'];
+          const matchTerms = ['contact', 'contacto', 'contato'];
           const isContactPage = matchTerms.some(term => text.includes(term) || hrefLower.includes(term));
 
           if (isContactPage && href && !href.startsWith('mailto:') && !href.startsWith('tel:') && !href.startsWith('#') && !href.startsWith('javascript:')) {
             const absLink = makeAbsolute(url, href);
-            if (absLink && absLink !== url && !contactLinks.includes(absLink)) {
-              contactLinks.push(absLink);
+            if (absLink && absLink !== url) {
+              bestContactLink = absLink;
             }
           }
         });
 
-        await Promise.all(contactLinks.slice(0, 2).map(link => scrapePage(link)));
+        if (bestContactLink) {
+          await scrapePage(bestContactLink);
+        }
       }
     } catch (error) {
       // Quietly ignore external site timeouts/blocks
@@ -305,22 +301,6 @@ export async function scrapeWebsiteContacts(websiteUrl, logCallback = () => {}) 
   }
 
   await scrapePage(targetUrl);
-
-  const foundSocials = [];
-  if (contacts.instagram) foundSocials.push('Instagram');
-  if (contacts.facebook) foundSocials.push('Facebook');
-  if (contacts.whatsapp) foundSocials.push('WhatsApp');
-  if (contacts.tiktok) foundSocials.push('TikTok');
-  if (contacts.linkedin) foundSocials.push('LinkedIn');
-  if (contacts.twitter) foundSocials.push('X/Twitter');
-
-  if (contacts.email.length > 0) {
-    logCallback(`  ├─ Emails detectados: ${contacts.email.join(', ')}`);
-  }
-  if (foundSocials.length > 0) {
-    logCallback(`  └─ Redes detectadas: ${foundSocials.join(', ')}`);
-  }
-
   return contacts;
 }
 
@@ -343,7 +323,7 @@ async function handleGoogleConsent(page, logCallback) {
       if (await btn.count() > 0) {
         logCallback('Aceptando aviso de cookies de Google...');
         await btn.click();
-        await page.waitForLoadState('networkidle').catch(() => {});
+        await page.waitForLoadState('domcontentloaded').catch(() => {});
         break;
       }
     }
@@ -362,7 +342,7 @@ function enrichBusinessRecord(local, defaultCountryCode = '54') {
       local[socialType] = local.website;
     }
     local.socialWebsite = local.website;
-    local.website = ''; // Not a standalone domain
+    local.website = '';
   }
 
   const hasWeb = Boolean(local.website && local.website.trim());
@@ -389,11 +369,11 @@ function enrichBusinessRecord(local, defaultCountryCode = '54') {
 }
 
 /**
- * Scrapes Google Maps search results for any general business/commerce.
+ * Fast, parallelized Google Maps scraper with 4 concurrent worker tabs and automatic zone expansion.
  */
 export async function scrapeGoogleMaps({
   query,
-  limit = 20,
+  limit = 25,
   logCallback = () => {},
   resultsCallback = () => {},
   headful = false,
@@ -402,7 +382,8 @@ export async function scrapeGoogleMaps({
   isInfinite = false,
   countryCode = '54'
 }) {
-  logCallback(`Iniciando navegador Chromium (${headful ? 'Modo Visible' : 'Modo Oculto Rápido'})...`);
+  const WORKER_CONCURRENCY = 4;
+  logCallback(`Iniciando motor rápido (${WORKER_CONCURRENCY} canales en paralelo)...`);
 
   const browser = await chromium.launch({
     headless: !headful,
@@ -410,7 +391,8 @@ export async function scrapeGoogleMaps({
       '--disable-gpu',
       '--no-sandbox',
       '--disable-dev-shm-usage',
-      '--disable-setuid-sandbox'
+      '--disable-setuid-sandbox',
+      '--disable-blink-features=AutomationControlled'
     ]
   });
 
@@ -419,175 +401,266 @@ export async function scrapeGoogleMaps({
   const context = await browser.newContext({
     locale: 'es-ES',
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    viewport: { width: 1280, height: 800 },
+    viewport: { width: 1280, height: 860 },
     extraHTTPHeaders: {
       'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
     }
   });
 
-  const page = await context.newPage();
+  // Speed up all pages by blocking heavy images, fonts, media, and ads
+  await context.route('**/*', (route) => {
+    const req = route.request();
+    const type = req.resourceType();
+    const url = req.url();
+    if (
+      type === 'image' ||
+      type === 'media' ||
+      type === 'font' ||
+      url.includes('ggpht.com') ||
+      url.includes('googleusercontent.com') ||
+      url.includes('doubleclick.net') ||
+      url.includes('google-analytics.com') ||
+      url.includes('/maps/vt/')
+    ) {
+      return route.abort();
+    }
+    return route.continue();
+  });
+
+  const mainPage = await context.newPage();
+
+  // Create reusable worker tabs for fast parallel detail extraction
+  const workerPages = [];
+  for (let i = 0; i < WORKER_CONCURRENCY; i++) {
+    workerPages.push(await context.newPage());
+  }
+
+  const placeUrlsQueue = [];
+  const queuedOrProcessedUrls = new Set();
+  const seenBusinessKeys = new Set();
+  const results = [];
+  let matchedCount = 0;
+  let inspectedCount = 0;
+
+  // Build search queries: main query first; if infinite or high limit (>60), queue automatic zone variations
+  // so if a single Google Maps feed ends at ~60-120 results, it keeps finding more businesses!
+  const searchQueries = [query.trim()];
+  if (isInfinite || limit > 60) {
+    const modifiers = ['centro', 'norte', 'sur', 'este', 'oeste', 'cerca'];
+    for (const mod of modifiers) {
+      if (!query.toLowerCase().includes(mod)) {
+        searchQueries.push(`${query.trim()} ${mod}`);
+      }
+    }
+  }
+
+  /**
+   * Worker function that pulls URLs from placeUrlsQueue and scrapes details in parallel.
+   */
+  async function processQueueBatch() {
+    const activeTasks = [];
+
+    while (
+      placeUrlsQueue.length > 0 &&
+      (isInfinite || matchedCount < limit) &&
+      !isAborted()
+    ) {
+      const batch = [];
+      for (let w = 0; w < WORKER_CONCURRENCY; w++) {
+        if (placeUrlsQueue.length === 0) break;
+        if (!isInfinite && matchedCount + batch.length >= limit) break;
+        batch.push({ workerPage: workerPages[w], url: placeUrlsQueue.shift() });
+      }
+
+      if (batch.length === 0) break;
+
+      const batchResults = await Promise.all(
+        batch.map(async ({ workerPage, url }) => {
+          if (isAborted() || (!isInfinite && matchedCount >= limit)) return null;
+          inspectedCount++;
+          try {
+            const local = await scrapePlaceDetailsFast(workerPage, url, logCallback);
+            if (!local || !local.name) return null;
+
+            const dedupKey = `${local.name.toLowerCase()}|${(local.phone || '').replace(/\D/g, '')}`;
+            if (seenBusinessKeys.has(dedupKey)) return null;
+            seenBusinessKeys.add(dedupKey);
+
+            return enrichBusinessRecord(local, countryCode);
+          } catch (err) {
+            return null;
+          }
+        })
+      );
+
+      for (const item of batchResults) {
+        if (!item) continue;
+        if (isAborted() || (!isInfinite && matchedCount >= limit)) break;
+
+        matchedCount++;
+        results.push(item);
+        await resultsCallback(item);
+
+        const phoneTag = item.phone ? `📞 ${item.phone}` : 'Sin tel';
+        logCallback(`✓ [${matchedCount}${isInfinite ? '' : '/' + limit}] ${item.name} — ${phoneTag}`);
+      }
+    }
+
+    return activeTasks;
+  }
 
   try {
-    const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(query)}?hl=es`;
-    logCallback(`Buscando en Google Maps: "${query}"`);
-    await page.goto(searchUrl, { waitUntil: 'load', timeout: 30000 });
+    for (let qIdx = 0; qIdx < searchQueries.length; qIdx++) {
+      if (isAborted() || (!isInfinite && matchedCount >= limit)) break;
 
-    await handleGoogleConsent(page, logCallback);
+      const currentQuery = searchQueries[qIdx];
+      const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(currentQuery)}?hl=es`;
 
-    const currentUrl = page.url();
-    if (currentUrl.includes('/maps/place/')) {
-      logCallback('Google Maps redirigió a un comercio único.');
-      let local = await scrapePlaceDetails(page, currentUrl, logCallback);
-      if (local) {
-        local = enrichBusinessRecord(local, countryCode);
-        await resultsCallback(local);
-        await browser.close();
-        return [local];
-      }
-      await browser.close();
-      return [];
-    }
-
-    logCallback('Esperando lista de comercios en Google Maps...');
-    const feedSelector = 'div[role="feed"]';
-
-    try {
-      await Promise.race([
-        page.waitForSelector(feedSelector, { timeout: 15000 }),
-        page.waitForSelector('text="No se encontraron resultados"', { timeout: 15000 }),
-        page.waitForSelector('text="No results found"', { timeout: 15000 })
-      ]);
-    } catch (e) {
-      logCallback('Timeout esperando la lista de resultados de Google Maps.');
-      await browser.close();
-      return [];
-    }
-
-    const scrollContainer = page.locator(feedSelector);
-    if (!(await scrollContainer.count())) {
-      logCallback('No se encontraron resultados para esta búsqueda.');
-      await browser.close();
-      return [];
-    }
-
-    let matchedCount = 0;
-    let scrollAttempts = 0;
-    const maxScrollAttempts = isInfinite ? 250 : 60;
-    const maxInspected = isInfinite ? 999999 : Math.max(150, limit * 4);
-    let inspectedCount = 0;
-
-    const placeUrls = [];
-    const processedUrls = new Set();
-    const results = [];
-
-    if (isInfinite) {
-      logCallback(`Extracción continua activa (SIN LÍMITE). Presiona "Detener" cuando quieras finalizar.`);
-    } else {
-      logCallback(`Extrayendo hasta ${limit} comercios de Google Maps...`);
-    }
-
-    while ((isInfinite || matchedCount < limit) && inspectedCount < maxInspected) {
-      if (isAborted()) {
-        logCallback('⛔ Búsqueda detenida por el usuario.');
-        break;
+      if (qIdx === 0) {
+        logCallback(`Buscando en Google Maps: "${currentQuery}"`);
+      } else {
+        logCallback(`Expandiendo búsqueda en zona: "${currentQuery}" para encontrar más comercios...`);
       }
 
-      // 1. Collect visible place links from the feed
-      const links = await scrollContainer.locator('a[href*="/maps/place/"]').all();
-      for (const link of links) {
-        const href = await link.getAttribute('href');
-        if (href) {
-          const cleanUrl = href.split('?')[0];
-          if (!processedUrls.has(cleanUrl) && !placeUrls.includes(cleanUrl)) {
-            placeUrls.push(cleanUrl);
-          }
-        }
+      await mainPage.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+      if (qIdx === 0) {
+        await handleGoogleConsent(mainPage, logCallback);
       }
 
-      // 2. Scroll feed if queue is empty
-      if (placeUrls.length === 0) {
-        if (scrollAttempts >= maxScrollAttempts) {
-          logCallback('Se alcanzó el límite de desplazamientos en la lista.');
-          break;
-        }
-
-        logCallback('Desplazando mapa para cargar más comercios...');
-        for (let s = 0; s < 3; s++) {
-          const lastLink = scrollContainer.locator('a[href*="/maps/place/"]').last();
-          if (await lastLink.count() > 0) {
-            await lastLink.scrollIntoViewIfNeeded().catch(() => {});
-          }
-          await scrollContainer.evaluate(el => el.scrollBy(0, 1500)).catch(() => {});
-          await page.mouse.wheel(0, 2500).catch(() => {});
-          await page.waitForTimeout(900);
-        }
-        await page.waitForTimeout(1200);
-
-        const linksAfter = await scrollContainer.locator('a[href*="/maps/place/"]').all();
-        for (const link of linksAfter) {
-          const href = await link.getAttribute('href');
-          if (href) {
-            const cleanUrl = href.split('?')[0];
-            if (!processedUrls.has(cleanUrl) && !placeUrls.includes(cleanUrl)) {
-              placeUrls.push(cleanUrl);
-            }
+      // Check if Google Maps redirected directly to a single place page
+      const currentUrl = mainPage.url();
+      if (currentUrl.includes('/maps/place/')) {
+        let local = await scrapePlaceDetailsFast(mainPage, currentUrl, logCallback);
+        if (local) {
+          local = enrichBusinessRecord(local, countryCode);
+          const dedupKey = `${local.name.toLowerCase()}|${(local.phone || '').replace(/\D/g, '')}`;
+          if (!seenBusinessKeys.has(dedupKey)) {
+            seenBusinessKeys.add(dedupKey);
+            matchedCount++;
+            results.push(local);
+            await resultsCallback(local);
           }
         }
-
-        if (placeUrls.length > 0) {
-          scrollAttempts = 0;
-        }
-
-        const bodyText = await scrollContainer.innerText().catch(() => '');
-        const endReached =
-          bodyText.includes('Fin de la lista') ||
-          bodyText.includes("You've reached the end of the list") ||
-          bodyText.includes('final de la lista');
-
-        if (placeUrls.length === 0 && endReached) {
-          logCallback('Se llegó al final de la lista de Google Maps.');
-          break;
-        }
-
-        scrollAttempts++;
         continue;
       }
 
-      // 3. Open next place URL in an isolated tab so feed scroll never resets
-      const url = placeUrls.shift();
-      processedUrls.add(url);
-      inspectedCount++;
-
-      const progressLabel = isInfinite
-        ? `[Continuo | Escaneados: ${inspectedCount} | Guardados: ${matchedCount}]`
-        : `[Progreso: ${matchedCount + 1}/${limit} | Escaneados: ${inspectedCount}]`;
-      logCallback(progressLabel);
-
+      const feedSelector = 'div[role="feed"]';
       try {
-        const detailPage = await context.newPage();
-        await detailPage.setExtraHTTPHeaders({
-          'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
-        });
+        await mainPage.waitForSelector(feedSelector, { timeout: 10000 });
+      } catch (e) {
+        continue;
+      }
 
-        let local = await scrapePlaceDetails(detailPage, url, logCallback);
-        await detailPage.close().catch(() => {});
+      const scrollContainer = mainPage.locator(feedSelector);
+      if (!(await scrollContainer.count())) continue;
 
-        if (local) {
-          local = enrichBusinessRecord(local, countryCode);
-          matchedCount++;
-          results.push(local);
-          await resultsCallback(local);
+      let emptyScrollRounds = 0;
+      const maxEmptyScrollRounds = 12;
 
-          const phoneTag = local.phone ? `📞 ${local.phone}` : 'Sin tel';
-          const webTag = local.website ? '🌐 Con Web' : (local.instagram || local.facebook ? '📱 Solo Redes' : '📍 Solo Maps');
-          logCallback(`✓ Guardado: "${local.name}" (${local.category || 'Comercio'}) — ${phoneTag} | ${webTag}`);
+      while ((isInfinite || matchedCount < limit) && !isAborted()) {
+        // Harvest all currently loaded place links in a single fast DOM evaluate call
+        const hrefs = await scrollContainer
+          .evaluate((feedEl) => {
+            const anchors = feedEl.querySelectorAll('a[href*="/maps/place/"]');
+            return Array.from(anchors)
+              .map((a) => a.getAttribute('href'))
+              .filter(Boolean);
+          })
+          .catch(() => []);
+
+        let newlyQueued = 0;
+        for (const href of hrefs) {
+          const cleanUrl = href.split('?')[0];
+          if (!queuedOrProcessedUrls.has(cleanUrl)) {
+            queuedOrProcessedUrls.add(cleanUrl);
+            placeUrlsQueue.push(cleanUrl);
+            newlyQueued++;
+          }
         }
-      } catch (err) {
-        logCallback(`Aviso procesando local: ${err.message}`);
+
+        // Process queued URLs in parallel batches of 4
+        if (placeUrlsQueue.length > 0) {
+          emptyScrollRounds = 0;
+          await processQueueBatch();
+        }
+
+        if (isAborted() || (!isInfinite && matchedCount >= limit)) break;
+
+        // Scroll feed aggressively to trigger Google Maps lazy loading of next 20 items
+        await scrollContainer
+          .evaluate((el) => {
+            el.scrollTop = el.scrollHeight;
+          })
+          .catch(() => {});
+
+        const lastCard = scrollContainer.locator('a[href*="/maps/place/"]').last();
+        if (await lastCard.count() > 0) {
+          await lastCard.scrollIntoViewIfNeeded().catch(() => {});
+        }
+
+        await scrollContainer.evaluate((el) => el.scrollBy(0, 2500)).catch(() => {});
+        await mainPage.waitForTimeout(650);
+
+        // Check if new links appeared after scrolling
+        const afterHrefs = await scrollContainer
+          .evaluate((feedEl) => {
+            const anchors = feedEl.querySelectorAll('a[href*="/maps/place/"]');
+            return Array.from(anchors)
+              .map((a) => a.getAttribute('href'))
+              .filter(Boolean);
+          })
+          .catch(() => []);
+
+        let addedAfterScroll = 0;
+        for (const href of afterHrefs) {
+          const cleanUrl = href.split('?')[0];
+          if (!queuedOrProcessedUrls.has(cleanUrl)) {
+            queuedOrProcessedUrls.add(cleanUrl);
+            placeUrlsQueue.push(cleanUrl);
+            addedAfterScroll++;
+          }
+        }
+
+        if (addedAfterScroll > 0) {
+          emptyScrollRounds = 0;
+          continue;
+        }
+
+        // Check if Google Maps explicitly says we reached the end of the list
+        const feedText = await scrollContainer
+          .evaluate((el) => el.innerText.slice(-400))
+          .catch(() => '');
+
+        const endReached =
+          feedText.includes('Fin de la lista') ||
+          feedText.includes('final de la lista') ||
+          feedText.includes("You've reached the end of the list") ||
+          feedText.includes('No hay más resultados');
+
+        if (endReached && placeUrlsQueue.length === 0) {
+          logCallback(`Fin de esta lista en Google Maps (${matchedCount} comercios recopilados hasta ahora).`);
+          break;
+        }
+
+        emptyScrollRounds++;
+        if (emptyScrollRounds >= maxEmptyScrollRounds && placeUrlsQueue.length === 0) {
+          break;
+        }
+
+        // Nudge scroll slightly up and down to unstick Google Maps spinner
+        await scrollContainer
+          .evaluate((el) => {
+            el.scrollBy(0, -300);
+            setTimeout(() => {
+              el.scrollTop = el.scrollHeight;
+            }, 100);
+          })
+          .catch(() => {});
+        await mainPage.waitForTimeout(550);
       }
     }
 
-    logCallback(`✅ Extracción completada. Total comercios recopilados: ${results.length}.`);
+    logCallback(`✅ Extracción finalizada. Total comercios recopilados: ${results.length}.`);
     await browser.close();
     return results;
   } catch (error) {
@@ -595,81 +668,98 @@ export async function scrapeGoogleMaps({
     try {
       await browser.close();
     } catch (e) {}
-    return [];
+    return results;
   }
 }
 
 /**
- * Extracts details from a single Google Maps place page.
+ * Ultra-fast single-pass DOM extraction for a Google Maps place page.
  */
-async function scrapePlaceDetails(page, url, logCallback) {
+async function scrapePlaceDetailsFast(page, url, logCallback) {
   try {
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 12000 });
-  } catch (err) {
-    logCallback(`Aviso navegando a ficha: ${err.message}`);
-    return null;
-  }
-
-  await handleGoogleConsent(page, logCallback);
-
-  const nameLocator = page.locator('h1').first();
-  try {
-    await nameLocator.waitFor({ state: 'visible', timeout: 10000 });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 9000 });
   } catch (err) {
     return null;
   }
 
-  const rawName = await nameLocator.textContent().catch(() => '');
-  const cleanName = cleanGlyphs(rawName);
-  if (!cleanName) return null;
+  try {
+    await page.locator('h1').first().waitFor({ state: 'visible', timeout: 5000 });
+  } catch (err) {
+    return null;
+  }
 
-  logCallback(`Analizando: "${cleanName}"`);
+  // Extract all fields in a single synchronous browser evaluation (takes ~1ms instead of 3000ms)
+  const rawDetails = await page
+    .evaluate(() => {
+      const clean = (s) =>
+        (s || '')
+          .replace(/[\uE000-\uF8FF]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
 
-  const getDetail = async (selectors, waitTimeout = 800) => {
-    for (const sel of selectors) {
-      try {
-        const el = page.locator(sel).first();
-        if (await el.count() > 0) {
-          await el.waitFor({ state: 'visible', timeout: waitTimeout });
-          const text = await el.textContent();
-          const cleaned = cleanGlyphs(text);
-          if (cleaned) return cleaned;
+      const h1 = document.querySelector('h1');
+      const name = clean(h1 ? h1.textContent : '');
+      if (!name) return null;
+
+      // Category
+      const catEl =
+        document.querySelector('button[jsaction*="category"]') ||
+        document.querySelector('.DkEaCc') ||
+        document.querySelector('button[data-item-id^="category"]');
+      const category = clean(catEl ? catEl.textContent : '');
+
+      // Website
+      const webEl =
+        document.querySelector('a[data-item-id="authority"]') ||
+        document.querySelector('a[data-tooltip*="website"]') ||
+        document.querySelector('a[data-tooltip*="sitio web"]') ||
+        document.querySelector('a[aria-label*="Sitio web"]') ||
+        document.querySelector('a[aria-label*="website"]');
+      let website = webEl ? (webEl.getAttribute('href') || '').trim() : '';
+
+      // Phone
+      const phoneEl =
+        document.querySelector('button[data-item-id^="phone:tel:"]') ||
+        document.querySelector('button[data-tooltip*="teléfono"]') ||
+        document.querySelector('button[data-tooltip*="phone"]') ||
+        document.querySelector('button[aria-label*="Teléfono"]') ||
+        document.querySelector('a[href^="tel:"]');
+
+      let phone = clean(phoneEl ? phoneEl.textContent : '');
+      if (!phone && phoneEl) {
+        const itemId = phoneEl.getAttribute('data-item-id') || '';
+        if (itemId.startsWith('phone:tel:')) {
+          phone = clean(itemId.replace('phone:tel:', ''));
         }
-      } catch (e) {}
-    }
-    return '';
-  };
+      }
 
-  const getAttribute = async (selectors, attr, waitTimeout = 800) => {
-    for (const sel of selectors) {
-      try {
-        const el = page.locator(sel).first();
-        if (await el.count() > 0) {
-          await el.waitFor({ state: 'visible', timeout: waitTimeout });
-          const val = await el.getAttribute(attr);
-          if (val && val.trim()) return val.trim();
+      // Address
+      const addrEl =
+        document.querySelector('button[data-item-id^="address"]') ||
+        document.querySelector('button[data-tooltip*="dirección"]') ||
+        document.querySelector('button[data-tooltip*="address"]') ||
+        document.querySelector('button[aria-label*="Dirección"]');
+      const address = clean(addrEl ? addrEl.textContent : '');
+
+      // Rating & Reviews
+      let rating = '';
+      let reviews = '';
+      const f7 = document.querySelector('.F7nice');
+      if (f7 && f7.textContent) {
+        const m = f7.textContent.match(/([0-9.,]+)\s*\((.+)\)/);
+        if (m) {
+          rating = m[1].replace(',', '.');
+          reviews = m[2].replace(/[^0-9]/g, '');
         }
-      } catch (e) {}
-    }
-    return '';
-  };
+      }
 
-  const category = await getDetail([
-    'button[jsaction*="category"]',
-    'span[jsaction*="category"]',
-    '.DkEaCc',
-    'button[data-item-id^="category"]'
-  ]);
+      return { name, category, website, phone, address, rating, reviews };
+    })
+    .catch(() => null);
 
-  let website = await getAttribute([
-    'a[data-item-id="authority"]',
-    'a[data-tooltip*="website"]',
-    'a[data-tooltip*="sitio web"]',
-    'a[aria-label*="Sitio web"]',
-    'a[aria-label*="website"]'
-  ], 'href');
+  if (!rawDetails || !rawDetails.name) return null;
 
-  // Unwrap Google redirect URLs if present
+  let website = rawDetails.website;
   if (website && website.includes('google.com/url?')) {
     try {
       const parsed = new URL(website);
@@ -677,56 +767,17 @@ async function scrapePlaceDetails(page, url, logCallback) {
     } catch (e) {}
   }
 
-  let phone = await getDetail([
-    'button[data-item-id^="phone:tel:"]',
-    'button[data-tooltip*="teléfono"]',
-    'button[data-tooltip*="phone"]',
-    'button[aria-label*="Teléfono"]',
-    'a[href^="tel:"]'
-  ]);
-
-  // Fallback: extract phone from data-item-id attribute if text was empty
-  if (!phone) {
-    const phoneAttr = await getAttribute(['button[data-item-id^="phone:tel:"]'], 'data-item-id');
-    if (phoneAttr) {
-      phone = cleanGlyphs(phoneAttr.replace('phone:tel:', ''));
-    }
-  }
-
-  const address = await getDetail([
-    'button[data-item-id^="address"]',
-    'button[data-tooltip*="dirección"]',
-    'button[data-tooltip*="address"]',
-    'button[aria-label*="Dirección"]'
-  ]);
-
-  let rating = '';
-  let reviews = '';
-  try {
-    const f7nice = page.locator('.F7nice').first();
-    if (await f7nice.count() > 0) {
-      const text = await f7nice.textContent();
-      if (text) {
-        const match = text.match(/([0-9.,]+)\s*\((.+)\)/);
-        if (match) {
-          rating = match[1].replace(',', '.');
-          reviews = match[2].replace(/[^0-9]/g, '');
-        }
-      }
-    }
-  } catch (e) {}
-
   const businessData = {
     id: `lead_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-    name: cleanName,
-    category: category || 'Comercio',
-    address: address || '',
-    phone: phone || '',
+    name: rawDetails.name,
+    category: rawDetails.category || 'Comercio',
+    address: rawDetails.address || '',
+    phone: rawDetails.phone || '',
     whatsappPhone: '',
     website: website || '',
     socialWebsite: '',
-    rating,
-    reviews,
+    rating: rawDetails.rating || '',
+    reviews: rawDetails.reviews || '',
     mapsUrl: url,
     digitalStatus: 'sin_web',
     email: [],
@@ -745,9 +796,7 @@ async function scrapePlaceDetails(page, url, logCallback) {
     try {
       const contacts = await scrapeWebsiteContacts(website, logCallback);
       Object.assign(businessData, contacts);
-    } catch (e) {
-      logCallback(`Aviso analizando web ${website}: ${e.message}`);
-    }
+    } catch (e) {}
   }
 
   return businessData;
