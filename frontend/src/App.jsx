@@ -169,7 +169,7 @@ export default function App() {
   // Cargar lista de archivos Excel locales desde GET /api/excels
   const fetchExcelFiles = async () => {
     try {
-      const res = await fetch(`${backendUrl}/api/excels`);
+      const res = await fetch(`${backendUrl}/api/excels?t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setExcelFiles(data.files || []);
@@ -183,7 +183,7 @@ export default function App() {
   // Cargar secciones y configuración del backend al iniciar
   const fetchSectionsAndSettings = async (selectId = null) => {
     try {
-      const res = await fetch(`${backendUrl}/api/sections`);
+      const res = await fetch(`${backendUrl}/api/sections?t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         const list = data.sections || [];
@@ -502,21 +502,31 @@ export default function App() {
     }
   };
 
-  // Eliminar un archivo Excel local
+  // Eliminar un archivo Excel local de forma inmediata y permanente
   const handleDeleteExcelFile = async (filename, e) => {
     if (e) e.stopPropagation();
-    const ok = window.confirm(`¿Borrar el archivo Excel "${filename}" de tu carpeta local?`);
-    if (!ok) return;
+    // Actualización optimista inmediata en la UI
+    setExcelFiles((prev) => prev.filter((f) => f.filename !== filename));
+    if (excelPreview?.filename === filename) {
+      setExcelPreview(null);
+    }
+    if (downloadFilename === filename) {
+      setDownloadFilename(null);
+    }
     try {
-      await fetch(`${backendUrl}/api/excels/${encodeURIComponent(filename)}`, {
-        method: 'DELETE'
+      const res = await fetch(`${backendUrl}/api/excels/${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+        cache: 'no-store'
       });
-      if (excelPreview?.filename === filename) {
-        setExcelPreview(null);
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        alert(data.error || 'No se pudo eliminar el archivo Excel.');
       }
-      fetchExcelFiles();
+      await fetchExcelFiles();
+      await fetchSectionsAndSettings(activeSectionId);
     } catch (err) {
       alert('Error eliminando archivo Excel.');
+      await fetchExcelFiles();
     }
   };
 
@@ -634,16 +644,17 @@ export default function App() {
     }
   };
 
-  // Borrar sección entera
+  // Borrar sección entera de forma inmediata y permanente
   const handleDeleteSection = async (section, e) => {
     if (e) e.stopPropagation();
-    const ok = window.confirm(
-      `¿Borrar la sección entera "${section.name}" (${section.contacts?.length || 0} contactos)?`
-    );
-    if (!ok) return;
+    setSections((prev) => prev.filter((s) => s.id !== section.id));
+    if (activeSectionId === section.id) {
+      if (drawerView === 'contacts') setDrawerView('sections');
+    }
     try {
       const res = await fetch(`${backendUrl}/api/sections/${section.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        cache: 'no-store'
       });
       const data = await res.json();
       if (data.success) {
@@ -651,28 +662,39 @@ export default function App() {
         setSections(remaining);
         if (activeSectionId === section.id) {
           setActiveSectionId(remaining.length > 0 ? remaining[0].id : null);
-          if (drawerView === 'contacts') setDrawerView('sections');
         }
+      } else {
+        await fetchSectionsAndSettings();
       }
     } catch (err) {
       alert('Error al borrar la sección.');
+      await fetchSectionsAndSettings();
     }
   };
 
   // Borrar un contacto individual dentro de una sección
   const handleDeleteContact = async (sectionId, contact) => {
-    const ok = window.confirm(`¿Borrar a "${contact.name}" de esta sección?`);
-    if (!ok) return;
+    setSections((prev) =>
+      prev.map((s) =>
+        s.id === sectionId
+          ? { ...s, contacts: (s.contacts || []).filter((c) => c.id !== contact.id) }
+          : s
+      )
+    );
     try {
       const res = await fetch(`${backendUrl}/api/sections/${sectionId}/contacts/${contact.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        cache: 'no-store'
       });
       const data = await res.json();
       if (data.success && data.section) {
         setSections((prev) => prev.map((s) => (s.id === sectionId ? data.section : s)));
+      } else {
+        await fetchSectionsAndSettings(sectionId);
       }
     } catch (err) {
       alert('Error al borrar el contacto.');
+      await fetchSectionsAndSettings(sectionId);
     }
   };
 

@@ -23,22 +23,15 @@ if (!fs.existsSync(excelsDir)) {
   fs.mkdirSync(excelsDir, { recursive: true });
 }
 
-// Legacy temp directory (copy any existing .xlsx files into excelsDir so all files appear in the viewer)
 const tempDir = path.join(__dirname, 'temp');
-if (fs.existsSync(tempDir)) {
-  try {
-    const legacyFiles = fs.readdirSync(tempDir).filter((f) => f.toLowerCase().endsWith('.xlsx'));
-    for (const file of legacyFiles) {
-      const src = path.join(tempDir, file);
-      const dest = path.join(excelsDir, file);
-      if (!fs.existsSync(dest)) {
-        fs.copyFileSync(src, dest);
-      }
-    }
-  } catch (e) {
-    console.error('Aviso migrando Excels antiguos:', e);
-  }
-}
+
+// Prevent browser caching on all API endpoints (especially in Edge/Chrome --app mode)
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
 
 // Ensure data directory and database.json exist for 100% local persistence
 const dataDir = path.join(__dirname, 'data');
@@ -412,16 +405,48 @@ app.get('/api/excels/:filename/preview', async (req, res) => {
 });
 
 /**
- * 13. DELETE /api/excels/:filename -> Deletes a local Excel file
+ * 13. DELETE /api/excels/:filename -> Deletes a local Excel file permanently
  */
 app.delete('/api/excels/:filename', (req, res) => {
-  const safeFilename = path.basename(req.params.filename);
-  const filePath = path.join(excelsDir, safeFilename);
+  try {
+    const decoded = decodeURIComponent(req.params.filename || '');
+    const safeFilename = path.basename(decoded);
+    const filePath = path.join(excelsDir, safeFilename);
+    const legacyPath = path.join(tempDir, safeFilename);
 
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    if (fs.existsSync(legacyPath)) {
+      try {
+        fs.unlinkSync(legacyPath);
+      } catch {}
+    }
+
+    // Clear reference in database.json if any section pointed to this file
+    const db = readDb();
+    let changed = false;
+    for (const sec of db.sections) {
+      if (sec.excelFilename === safeFilename) {
+        sec.excelFilename = null;
+        changed = true;
+      }
+    }
+    if (changed) {
+      writeDb(db);
+    }
+
+    res.json({ success: true, deleted: safeFilename });
+  } catch (err) {
+    console.error('Error eliminando archivo Excel:', err);
+    res.status(500).json({
+      success: false,
+      error:
+        err.code === 'EBUSY' || err.code === 'EPERM'
+          ? 'El archivo está abierto en Excel. Ciérralo primero para poder borrarlo.'
+          : 'No se pudo eliminar el archivo Excel.'
+    });
   }
-  res.json({ success: true });
 });
 
 /**
