@@ -1,110 +1,176 @@
 import React, { useState, useEffect, useRef } from 'react';
-import confetti from 'canvas-confetti';
-import {
-  Play,
-  Square,
-  Download,
-  Search,
-  Hash,
-  Eye,
-  EyeOff,
-  Terminal,
-  Building2,
-  Globe,
-  Mail,
-  Phone,
-  MapPin,
-  Star,
-  Infinity as InfinityIcon,
-  Compass,
-  MessageSquare,
-  Trash2,
-  FolderOpen,
-  FolderPlus,
-  CheckCircle2,
-  Copy,
-  Check,
-  ExternalLink,
-  Sparkles,
-  Share2,
-  Edit3,
-  ArrowRight,
-  Layers,
-  Sliders,
-  RefreshCw,
-  AlertTriangle
-} from 'lucide-react';
 
-const COUNTRY_OPTIONS = [
-  { code: '54', label: '🇦🇷 Argentina (+54)' },
-  { code: '55', label: '🇧🇷 Brasil (+55)' },
-  { code: '52', label: '🇲🇽 México (+52)' },
-  { code: '34', label: '🇪🇸 España (+34)' },
-  { code: '56', label: '🇨🇱 Chile (+56)' },
-  { code: '57', label: '🇨🇴 Colombia (+57)' },
-  { code: '598', label: '🇺🇾 Uruguay (+598)' },
-  { code: '51', label: '🇵🇪 Perú (+51)' },
-  { code: '1', label: '🇺🇸 EE.UU. / Canadá (+1)' }
+// ============================================================================
+// ICONOS MATERIAL (24x24, fill currentColor, trazados exactos de la especificación)
+// ============================================================================
+const ICON_PATHS = {
+  pin: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z',
+  buscar: 'M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
+  carpeta: 'M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z',
+  mundo: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z',
+  lista: 'M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z',
+  ojo: 'M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z',
+  apps: 'M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z',
+  chat: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z',
+  tabla: 'M20 2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 20H4v-4h4v4zm0-6H4v-4h4v4zm0-6H4V4h4v4zm6 12h-4v-4h4v4zm0-6h-4v-4h4v4zm0-6h-4V4h4v4zm6 12h-4v-4h4v4zm0-6h-4v-4h4v4zm0-6h-4V4h4v4z',
+  ajustes: 'M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z',
+  cerrar: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+  editar: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z',
+  descargar: 'M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z',
+  borrar: 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
+  agregar: 'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
+  detener: 'M6 6h12v12H6z'
+};
+
+function MaterialIcon({ name, size = 24, className = '', style = {} }) {
+  const path = ICON_PATHS[name] || ICON_PATHS.buscar;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+      style={style}
+    >
+      <path d={path} />
+    </svg>
+  );
+}
+
+// ============================================================================
+// TOKENS DE COLORES Y DATOS DE CONFIGURACIÓN
+// ============================================================================
+const AVATAR_PALETTE = [
+  { fondo: '#e8f0fe', texto: '#1967d2' },
+  { fondo: '#fce8e6', texto: '#c5221f' },
+  { fondo: '#fef7e0', texto: '#b06000' },
+  { fondo: '#e6f4ea', texto: '#137333' }
 ];
 
-const QUICK_SEARCH_EXAMPLES = [
+const DIGITAL_PRESENCE_TAGS = {
+  web_propia: { fondo: '#e8f0fe', texto: '#174ea6', etiqueta: 'Web propia' },
+  web_y_redes: { fondo: '#e8f0fe', texto: '#174ea6', etiqueta: 'Web propia' },
+  solo_web: { fondo: '#e8f0fe', texto: '#174ea6', etiqueta: 'Web propia' },
+  solo_redes: { fondo: '#f3e8fd', texto: '#6a1b9a', etiqueta: 'Solo redes' },
+  sin_web: { fondo: '#fef7e0', texto: '#7a4a00', etiqueta: 'Sin web' }
+};
+
+const COUNTRY_CHIP_OPTIONS = [
+  { label: 'Argentina +54', code: '54' },
+  { label: 'Brasil +55', code: '55' },
+  { label: 'México +52', code: '52' },
+  { label: 'España +34', code: '34' }
+];
+
+const LIMIT_CHIP_OPTIONS = [
+  { label: '25 comercios', limit: 25 },
+  { label: '50 comercios', limit: 50 },
+  { label: '100 comercios', limit: 100 },
+  { label: 'Sin límite', limit: null }
+];
+
+const BROWSER_CHIP_OPTIONS = [
+  { label: 'Navegador oculto', mode: 'headless', headful: false },
+  { label: 'Navegador visible', mode: 'headful', headful: true }
+];
+
+const SUGGESTION_ITEMS = [
   'Ferreterías en Caballito',
   'Gimnasios en Palermo',
-  'Restaurantes en Córdoba',
-  'Odontólogos en Belgrano',
-  'Peluquerías en Rosario',
-  'Veterinarias en Mendoza',
-  'Estudios Contables en Microcentro',
-  'Talleres Mecánicos en Lanús'
+  'Restaurantes en Córdoba'
+];
+
+const DEMO_BUSINESSES = [
+  { nombre: 'Ferretería El Tornillo', detalle: 'Ferretería · Av. Rivadavia', presencia: 'web_propia', telefono: true, phone: '+54 11 4901-2345', website: 'https://ferreteriaeltornillo.com.ar', instagram: 'https://instagram.com/eltornillo' },
+  { nombre: 'Corralón Don Pepe', detalle: 'Materiales de construcción · Acoyte', presencia: 'sin_web', telefono: true, phone: '+54 11 4902-6789', website: '', instagram: '' },
+  { nombre: 'Ferrecentro Caballito', detalle: 'Ferretería · Díaz Vélez', presencia: 'web_propia', telefono: true, phone: '+54 11 4981-1122', website: 'https://ferrecentro.com.ar', instagram: 'https://instagram.com/ferrecentro' },
+  { nombre: 'Casa Lombardi', detalle: 'Herramientas · Pujol', presencia: 'solo_redes', telefono: true, phone: '+54 11 4432-9988', website: '', instagram: 'https://instagram.com/casalombardi' },
+  { nombre: 'La Llave Maestra', detalle: 'Cerrajería · Rojas', presencia: 'solo_redes', telefono: false, phone: '', website: '', facebook: 'https://facebook.com/lallavemaestra' },
+  { nombre: 'Bulonera Sur', detalle: 'Bulonería · Gaona', presencia: 'sin_web', telefono: true, phone: '+54 11 4582-3344', website: '', instagram: '' },
+  { nombre: 'Pinturería Colores', detalle: 'Pinturería · Hidalgo', presencia: 'web_propia', telefono: true, phone: '+54 11 4903-5566', website: 'https://pintureriacolores.com.ar', instagram: 'https://instagram.com/pintureriacolores' },
+  { nombre: 'Electro Hogar Mario', detalle: 'Electricidad · Neuquén', presencia: 'solo_redes', telefono: true, phone: '+54 11 4631-7788', website: '', instagram: 'https://instagram.com/electrohogarmario' }
 ];
 
 export default function App() {
   const backendUrl = import.meta.env.DEV ? 'http://localhost:3005' : '';
 
-  // Main View: 'scraper' | 'outreach'
-  const [mainView, setMainView] = useState('scraper');
+  // Estado principal de la pantalla: 'idle' | 'run' | 'done'
+  const [pageState, setPageState] = useState('idle');
 
-  // Saved Sections & Settings (Persisted in local backend data/database.json)
+  // Búsqueda y ajustes en chips rotativos
+  const [query, setQuery] = useState('');
+  const [destIdx, setDestIdx] = useState(0);
+  const [countryIdx, setCountryIdx] = useState(0);
+  const [limitIdx, setLimitIdx] = useState(0);
+  const [browserIdx, setBrowserIdx] = useState(0);
+
+  // Alternadores de animación popA / popB para cada chip y el contador
+  const [chipFlip, setChipFlip] = useState({
+    destino: false,
+    pais: false,
+    cantidad: false,
+    navegador: false
+  });
+  const [counterFlip, setCounterFlip] = useState(false);
+  const [rowFlip, setRowFlip] = useState(false);
+
+  // Menú de 9 puntos y Panel Lateral
+  const [menuAppsOpen, setMenuAppsOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  // Vista dentro del panel lateral: 'sections' | 'contacts' | 'template' | 'settings'
+  const [drawerView, setDrawerView] = useState('sections');
+
+  // Datos persistidos en el backend (secciones y configuración de WhatsApp)
   const [sections, setSections] = useState([]);
   const [activeSectionId, setActiveSectionId] = useState(null);
   const [whatsappTemplate, setWhatsappTemplate] = useState(
     '¡Hola {nombre}! 👋 Los encontré buscando *{rubro}* en Google Maps ({lugar}) y quería ponerme en contacto con ustedes.'
   );
-  const [countryCode, setCountryCode] = useState('54');
   const [savingSettings, setSavingSettings] = useState(false);
-  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
 
-  // Scraper Search Form State
-  const [query, setQuery] = useState('Ferreterías en Caballito');
-  const [customSectionName, setCustomSectionName] = useState('');
-  const [targetSectionChoice, setTargetSectionChoice] = useState('new'); // 'new' or section.id
-  const [limit, setLimit] = useState(25);
-  const [isInfinite, setIsInfinite] = useState(false);
-  const [headful, setHeadful] = useState(false);
-
-  // Live Scraping State
-  const [isScraping, setIsScraping] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [logs, setLogs] = useState([]);
+  // Resultados en vivo de la búsqueda actual
   const [liveResults, setLiveResults] = useState([]);
-  const [downloadFilename, setDownloadFilename] = useState(null);
+  const [logs, setLogs] = useState([]);
   const [lastScrapedSectionId, setLastScrapedSectionId] = useState(null);
-  const [liveFilterTab, setLiveFilterTab] = useState('todos');
+  const [downloadFilename, setDownloadFilename] = useState(null);
 
-  // Outreach Section View State
+  // Interacción dentro de la vista de contactos (Outreach) en el panel lateral
   const [contactSearch, setContactSearch] = useState('');
-  const [contactFilter, setContactFilter] = useState('todos'); // 'todos' | 'pendientes' | 'contactados' | 'con_web' | 'sin_web' | 'con_whatsapp'
+  const [contactFilter, setContactFilter] = useState('todos');
   const [copiedId, setCopiedId] = useState(null);
   const [editingContactMsgId, setEditingContactMsgId] = useState(null);
   const [customMessages, setCustomMessages] = useState({});
   const [renamingSectionId, setRenamingSectionId] = useState(null);
   const [renameSectionValue, setRenameSectionValue] = useState('');
   const [exportingSectionId, setExportingSectionId] = useState(null);
+  const [simulationMode, setSimulationMode] = useState(false);
 
-  const logsEndRef = useRef(null);
   const eventSourceRef = useRef(null);
+  const simIntervalRef = useRef(null);
+  const menuAppsRef = useRef(null);
+  const menuBtnRef = useRef(null);
+  const searchInputRef = useRef(null);
 
-  // Load sections and settings on startup
+  // Opciones dinámicas para el chip "Destino"
+  const destinationOptions = [
+    { id: 'new', label: 'Sección nueva' },
+    ...(sections.length > 0
+      ? sections.map((s) => ({ id: s.id, label: s.name }))
+      : [
+          { id: 'new_ferre', label: 'Ferreterías en Caballito' },
+          { id: 'new_gim', label: 'Gimnasios en Palermo' }
+        ])
+  ];
+
+  const safeDestIdx = destIdx < destinationOptions.length ? destIdx : 0;
+  const currentDest = destinationOptions[safeDestIdx] || destinationOptions[0];
+  const currentCountry = COUNTRY_CHIP_OPTIONS[countryIdx] || COUNTRY_CHIP_OPTIONS[0];
+  const currentLimit = LIMIT_CHIP_OPTIONS[limitIdx] || LIMIT_CHIP_OPTIONS[0];
+  const currentBrowser = BROWSER_CHIP_OPTIONS[browserIdx] || BROWSER_CHIP_OPTIONS[0];
+
+  // Cargar secciones y configuración del backend al iniciar
   const fetchSectionsAndSettings = async (selectId = null) => {
     try {
       const res = await fetch(`${backendUrl}/api/sections`);
@@ -113,14 +179,21 @@ export default function App() {
         const list = data.sections || [];
         setSections(list);
         if (data.settings) {
-          setWhatsappTemplate(data.settings.whatsappTemplate || whatsappTemplate);
-          setCountryCode(data.settings.defaultCountryCode || '54');
+          if (data.settings.whatsappTemplate) {
+            setWhatsappTemplate(data.settings.whatsappTemplate);
+          }
+          if (data.settings.defaultCountryCode) {
+            const idx = COUNTRY_CHIP_OPTIONS.findIndex(
+              (c) => c.code === String(data.settings.defaultCountryCode)
+            );
+            if (idx !== -1) setCountryIdx(idx);
+          }
         }
         if (selectId) {
           setActiveSectionId(selectId);
         } else if (!activeSectionId && list.length > 0) {
           setActiveSectionId(list[0].id);
-        } else if (activeSectionId && !list.some(s => s.id === activeSectionId)) {
+        } else if (activeSectionId && !list.some((s) => s.id === activeSectionId)) {
           setActiveSectionId(list.length > 0 ? list[0].id : null);
         }
       }
@@ -131,29 +204,36 @@ export default function App() {
 
   useEffect(() => {
     fetchSectionsAndSettings();
-  }, []);
-
-  useEffect(() => {
-    if (logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs]);
-
-  useEffect(() => {
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
+      if (eventSourceRef.current) eventSourceRef.current.close();
+      if (simIntervalRef.current) clearInterval(simIntervalRef.current);
     };
   }, []);
 
-  const addLog = (text, type = 'info') => {
+  // Cerrar menú de 9 puntos al hacer clic fuera
+  useEffect(() => {
+    if (!menuAppsOpen) return;
+    const handleClickOutside = (e) => {
+      if (
+        menuAppsRef.current &&
+        !menuAppsRef.current.contains(e.target) &&
+        menuBtnRef.current &&
+        !menuBtnRef.current.contains(e.target)
+      ) {
+        setMenuAppsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuAppsOpen]);
+
+  const addLog = (text) => {
     const time = new Date().toLocaleTimeString('es-AR');
-    setLogs(prev => [...prev, { text, type, time }]);
+    setLogs((prev) => [...prev, { text, time }]);
   };
 
-  // Save WhatsApp template & country code settings
-  const handleSaveSettings = async (newTemplate = whatsappTemplate, newCountry = countryCode) => {
+  // Guardar configuración global (plantilla WhatsApp y código de país)
+  const handleSaveSettings = async (newTemplate = whatsappTemplate, newCountryCode = currentCountry.code) => {
     setSavingSettings(true);
     try {
       await fetch(`${backendUrl}/api/settings`, {
@@ -161,157 +241,232 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           whatsappTemplate: newTemplate,
-          defaultCountryCode: newCountry
+          defaultCountryCode: newCountryCode
         })
       });
     } catch (err) {
-      console.error('Error guardando configuración:', err);
+      console.error('Error guardando ajustes:', err);
     } finally {
       setSavingSettings(false);
     }
   };
 
-  // Start Google Maps Scraping
-  const handleStartScraping = () => {
+  // Rotar valor de un chip con animación popA / popB
+  const handleRotateChip = (chipKey) => {
+    setChipFlip((prev) => ({ ...prev, [chipKey]: !prev[chipKey] }));
+
+    if (chipKey === 'destino') {
+      setDestIdx((prev) => (prev + 1) % destinationOptions.length);
+    } else if (chipKey === 'pais') {
+      const nextIdx = (countryIdx + 1) % COUNTRY_CHIP_OPTIONS.length;
+      setCountryIdx(nextIdx);
+      handleSaveSettings(whatsappTemplate, COUNTRY_CHIP_OPTIONS[nextIdx].code);
+    } else if (chipKey === 'cantidad') {
+      setLimitIdx((prev) => (prev + 1) % LIMIT_CHIP_OPTIONS.length);
+    } else if (chipKey === 'navegador') {
+      setBrowserIdx((prev) => (prev + 1) % BROWSER_CHIP_OPTIONS.length);
+    }
+  };
+
+  // Agregar un resultado en vivo activando animaciones de contador y fila
+  const pushLiveResult = (item) => {
+    setCounterFlip((prev) => !prev);
+    setRowFlip((prev) => !prev);
+    setLiveResults((prev) => [...prev, item]);
+  };
+
+  // Simulación de respaldo o demostración (420 ms por comercio según especificación)
+  const startSimulationRun = (effectiveQuery, maxItems) => {
+    let count = 0;
+    const targetLimit = maxItems || 25;
+
+    if (simIntervalRef.current) clearInterval(simIntervalRef.current);
+    simIntervalRef.current = setInterval(() => {
+      const sample = DEMO_BUSINESSES[count % DEMO_BUSINESSES.length];
+      count += 1;
+
+      const simulatedItem = {
+        id: `sim_${Date.now()}_${count}`,
+        name: sample.nombre,
+        category: sample.detalle.split('·')[0]?.trim() || 'Comercio',
+        address: sample.detalle.split('·')[1]?.trim() || effectiveQuery,
+        detalle: sample.detalle,
+        digitalStatus: sample.presencia,
+        phone: sample.telefono ? sample.phone : '',
+        whatsappPhone: sample.telefono ? sample.phone.replace(/\D/g, '') : '',
+        website: sample.website || '',
+        instagram: sample.instagram || '',
+        facebook: sample.facebook || '',
+        contacted: false
+      };
+
+      pushLiveResult(simulatedItem);
+
+      if (maxItems !== null && count >= targetLimit) {
+        clearInterval(simIntervalRef.current);
+        simIntervalRef.current = null;
+        setPageState('done');
+      }
+    }, 420);
+  };
+
+  // Iniciar búsqueda (GET /api/scrape-stream o simulación)
+  const handleStartSearch = () => {
+    const effectiveQuery = query.trim() || 'Ferreterías en Caballito';
     if (!query.trim()) {
-      alert('Por favor escribe qué comercios quieres buscar en Google Maps.');
+      setQuery(effectiveQuery);
+    }
+
+    setMenuAppsOpen(false);
+    setPageState('run');
+    setLiveResults([]);
+    setDownloadFilename(null);
+    setLogs([]);
+
+    const isInfinite = currentLimit.limit === null;
+    const limitValue = currentLimit.limit || 25;
+
+    if (simulationMode) {
+      addLog(`Modo demostración (420ms): "${effectiveQuery}"`);
+      startSimulationRun(effectiveQuery, currentLimit.limit);
       return;
     }
 
-    setIsScraping(true);
-    setProgress(0);
-    setLogs([]);
-    setLiveResults([]);
-    setDownloadFilename(null);
-    setLiveFilterTab('todos');
-
-    const secNameParam = customSectionName.trim() || query.trim();
-    addLog(`Iniciando búsqueda universal en Google Maps para: "${query}"...`, 'info');
+    const targetSectionId =
+      currentDest.id && currentDest.id.startsWith('sec_') ? currentDest.id : 'new';
+    const sectionName =
+      targetSectionId === 'new' && currentDest.id !== 'new'
+        ? currentDest.label
+        : effectiveQuery;
 
     const params = new URLSearchParams({
-      query: query.trim(),
-      sectionName: secNameParam,
-      targetSectionId: targetSectionChoice,
-      limit: String(limit),
-      headful: String(headful),
+      query: effectiveQuery,
+      sectionName,
+      targetSectionId,
+      limit: String(limitValue),
+      headful: String(currentBrowser.headful),
       infinite: String(isInfinite),
-      countryCode
+      countryCode: currentCountry.code
     });
 
     const sseUrl = `${backendUrl}/api/scrape-stream?${params.toString()}`;
-    const eventSource = new EventSource(sseUrl);
-    eventSourceRef.current = eventSource;
+    const es = new EventSource(sseUrl);
+    eventSourceRef.current = es;
 
-    eventSource.onmessage = (event) => {
+    es.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-
         if (data.type === 'section_created' && data.section) {
           setLastScrapedSectionId(data.section.id);
           setActiveSectionId(data.section.id);
           fetchSectionsAndSettings(data.section.id);
         } else if (data.type === 'log') {
-          let logType = 'info';
-          const msgLower = data.message.toLowerCase();
-          if (msgLower.includes('error') || msgLower.includes('crítico')) logType = 'error';
-          else if (msgLower.includes('✓') || msgLower.includes('✅') || msgLower.includes('éxito') || msgLower.includes('completada')) logType = 'success';
-          else if (msgLower.includes('aviso') || msgLower.includes('⛔')) logType = 'warning';
-
-          addLog(data.message, logType);
-        } else if (data.type === 'result') {
-          const item = data.data;
+          addLog(data.message);
+        } else if (data.type === 'result' && data.data) {
           if (data.sectionId) {
             setLastScrapedSectionId(data.sectionId);
           }
-          setLiveResults(prev => {
-            const updated = [...prev, item];
-            if (!isInfinite) {
-              setProgress(Math.min(Math.round((updated.length / limit) * 100), 100));
-            } else {
-              setProgress(100);
-            }
-            return updated;
-          });
-          // Refresh sections state so counts update live
+          pushLiveResult(data.data);
           fetchSectionsAndSettings(data.sectionId);
         } else if (data.type === 'complete') {
-          setIsScraping(false);
-          eventSource.close();
-          fetchSectionsAndSettings(data.sectionId);
-
-          if (data.error) {
-            addLog(`Finalizado con aviso: ${data.error}`, 'warning');
-          } else {
-            addLog(`¡Proceso completado! Contactos guardados en su sección y Excel generado.`, 'success');
-            setDownloadFilename(data.filename);
-            if (data.sectionId) setLastScrapedSectionId(data.sectionId);
-            setProgress(100);
-
-            confetti({
-              particleCount: 130,
-              spread: 75,
-              origin: { y: 0.6 }
-            });
+          es.close();
+          eventSourceRef.current = null;
+          setPageState('done');
+          if (data.filename) setDownloadFilename(data.filename);
+          if (data.sectionId) {
+            setLastScrapedSectionId(data.sectionId);
+            setActiveSectionId(data.sectionId);
           }
+          fetchSectionsAndSettings(data.sectionId);
         }
       } catch (err) {
-        console.error('Error parseando mensaje SSE:', err);
+        console.error('Error SSE:', err);
       }
     };
 
-    eventSource.onerror = () => {
-      addLog('Conexión con el proceso de scraping finalizada o interrumpida.', 'warning');
-      setIsScraping(false);
-      eventSource.close();
+    es.onerror = () => {
+      es.close();
+      eventSourceRef.current = null;
+      setPageState((prev) => (prev === 'run' ? 'done' : prev));
       fetchSectionsAndSettings();
     };
   };
 
-  // Stop Scraping and generate partial Excel
-  const handleStopScraping = async () => {
+  // Detener y guardar lo recopilado
+  const handleStopAndSave = async () => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
-    setIsScraping(false);
-    await fetchSectionsAndSettings(lastScrapedSectionId);
+    if (simIntervalRef.current) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
+    setPageState('done');
+    await fetchSectionsAndSettings(lastScrapedSectionId || activeSectionId);
 
-    if (liveResults.length > 0) {
-      addLog(`Proceso detenido por el usuario. Generando Excel con los ${liveResults.length} comercios recopilados...`, 'warning');
+    if (liveResults.length > 0 && !downloadFilename) {
       try {
         const res = await fetch(`${backendUrl}/api/export-excel`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             results: liveResults,
-            query,
+            query: query || 'Ferreterías en Caballito',
             sectionId: lastScrapedSectionId
           })
         });
         const data = await res.json();
         if (data.filename) {
           setDownloadFilename(data.filename);
-          addLog(`¡Excel listo para descargar (${liveResults.length} comercios)! También quedaron guardados en su sección.`, 'success');
         }
       } catch (err) {
-        addLog(`Error generando Excel parcial: ${err.message}`, 'error');
+        console.error('Error generando Excel parcial:', err);
       }
-    } else {
-      addLog('Búsqueda detenida sin resultados.', 'warning');
     }
   };
 
-  // Download Excel from live scraper
+  // Acción del botón redondo azul del buscador
+  const handleSearchButtonClick = () => {
+    if (pageState === 'run') {
+      handleStopAndSave();
+    } else {
+      handleStartSearch();
+    }
+  };
+
+  // Descargar Excel de la búsqueda actual o de una sección
   const handleDownloadLiveExcel = async () => {
     if (downloadFilename) {
       window.open(`${backendUrl}/api/download/${downloadFilename}`, '_blank');
       return;
+    }
+    const targetSecId = lastScrapedSectionId || activeSectionId;
+    if (targetSecId) {
+      try {
+        const res = await fetch(`${backendUrl}/api/sections/${targetSecId}/export-excel`, {
+          method: 'POST'
+        });
+        const data = await res.json();
+        if (data.filename) {
+          setDownloadFilename(data.filename);
+          window.open(`${backendUrl}/api/download/${data.filename}`, '_blank');
+          return;
+        }
+      } catch (err) {
+        console.error(err);
+      }
     }
     if (liveResults.length > 0) {
       try {
         const res = await fetch(`${backendUrl}/api/export-excel`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ results: liveResults, query, sectionId: lastScrapedSectionId })
+          body: JSON.stringify({
+            results: liveResults,
+            query: query || 'comercios',
+            sectionId: lastScrapedSectionId
+          })
         });
         const data = await res.json();
         if (data.filename) {
@@ -319,16 +474,16 @@ export default function App() {
           window.open(`${backendUrl}/api/download/${data.filename}`, '_blank');
         }
       } catch (err) {
-        alert('Error descargando el Excel: ' + err.message);
+        alert('No se pudo generar el Excel.');
       }
     }
   };
 
-  // Download Excel for any saved section
+  // Descargar Excel de una sección específica desde el panel lateral
   const handleDownloadSectionExcel = async (section, e) => {
     if (e) e.stopPropagation();
     if (!section.contacts || section.contacts.length === 0) {
-      alert('Esta sección no tiene contactos para exportar a Excel.');
+      alert('Esta sección aún no tiene comercios guardados para exportar.');
       return;
     }
     setExportingSectionId(section.id);
@@ -342,63 +497,15 @@ export default function App() {
         fetchSectionsAndSettings(activeSectionId);
       }
     } catch (err) {
-      alert('Error generando Excel de la sección.');
+      alert('Error al descargar el Excel de la sección.');
     } finally {
       setExportingSectionId(null);
     }
   };
 
-  // Delete an entire search section
-  const handleDeleteSection = async (section, e) => {
-    if (e) e.stopPropagation();
-    const confirmDelete = window.confirm(
-      `¿Estás seguro de que quieres BORRAR la sección entera "${section.name}" con sus ${section.contacts?.length || 0} contactos recopilados?\n\nEsta acción no se puede deshacer.`
-    );
-    if (!confirmDelete) return;
-
-    try {
-      const res = await fetch(`${backendUrl}/api/sections/${section.id}`, {
-        method: 'DELETE'
-      });
-      const data = await res.json();
-      if (data.success) {
-        const remaining = data.sections || [];
-        setSections(remaining);
-        if (activeSectionId === section.id) {
-          setActiveSectionId(remaining.length > 0 ? remaining[0].id : null);
-        }
-      }
-    } catch (err) {
-      alert('Error al eliminar la sección: ' + err.message);
-    }
-  };
-
-  // Rename a section
-  const handleRenameSection = async (sectionId) => {
-    if (!renameSectionValue.trim()) {
-      setRenamingSectionId(null);
-      return;
-    }
-    try {
-      const res = await fetch(`${backendUrl}/api/sections/${sectionId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: renameSectionValue.trim() })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSections(prev => prev.map(s => (s.id === sectionId ? data.section : s)));
-      }
-    } catch (err) {
-      console.error('Error renombrando sección:', err);
-    } finally {
-      setRenamingSectionId(null);
-    }
-  };
-
-  // Create a manual empty section
+  // Crear nueva sección vacía manualmente
   const handleCreateManualSection = async () => {
-    const name = window.prompt('Nombre para la nueva sección de contactos:');
+    const name = window.prompt('Nombre de la nueva sección:');
     if (!name || !name.trim()) return;
     try {
       const res = await fetch(`${backendUrl}/api/sections`, {
@@ -411,57 +518,103 @@ export default function App() {
         await fetchSectionsAndSettings(data.section.id);
       }
     } catch (err) {
-      alert('Error creando sección.');
+      alert('Error al crear la sección.');
     }
   };
 
-  // Delete an individual contact inside a section
-  const handleDeleteContact = async (sectionId, contact) => {
-    const confirmDelete = window.confirm(
-      `¿Eliminar el contacto "${contact.name}" de esta sección?`
-    );
-    if (!confirmDelete) return;
+  // Renombrar sección
+  const handleRenameSection = async (sectionId, e) => {
+    if (e) e.stopPropagation();
+    if (!renameSectionValue.trim()) {
+      setRenamingSectionId(null);
+      return;
+    }
+    try {
+      const res = await fetch(`${backendUrl}/api/sections/${sectionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: renameSectionValue.trim() })
+      });
+      const data = await res.json();
+      if (data.success && data.section) {
+        setSections((prev) => prev.map((s) => (s.id === sectionId ? data.section : s)));
+      }
+    } catch (err) {
+      console.error('Error renombrando sección:', err);
+    } finally {
+      setRenamingSectionId(null);
+    }
+  };
 
+  // Borrar sección entera
+  const handleDeleteSection = async (section, e) => {
+    if (e) e.stopPropagation();
+    const ok = window.confirm(
+      `¿Borrar la sección entera "${section.name}" (${section.contacts?.length || 0} contactos)?`
+    );
+    if (!ok) return;
+    try {
+      const res = await fetch(`${backendUrl}/api/sections/${section.id}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        const remaining = data.sections || [];
+        setSections(remaining);
+        if (activeSectionId === section.id) {
+          setActiveSectionId(remaining.length > 0 ? remaining[0].id : null);
+          if (drawerView === 'contacts') setDrawerView('sections');
+        }
+      }
+    } catch (err) {
+      alert('Error al borrar la sección.');
+    }
+  };
+
+  // Borrar un contacto individual dentro de una sección
+  const handleDeleteContact = async (sectionId, contact) => {
+    const ok = window.confirm(`¿Borrar a "${contact.name}" de esta sección?`);
+    if (!ok) return;
     try {
       const res = await fetch(`${backendUrl}/api/sections/${sectionId}/contacts/${contact.id}`, {
         method: 'DELETE'
       });
       const data = await res.json();
       if (data.success && data.section) {
-        setSections(prev => prev.map(s => (s.id === sectionId ? data.section : s)));
+        setSections((prev) => prev.map((s) => (s.id === sectionId ? data.section : s)));
       }
     } catch (err) {
-      alert('Error eliminando contacto: ' + err.message);
+      alert('Error al borrar el contacto.');
     }
   };
 
-  // Toggle contacted status for a contact
+  // Marcar / desmarcar como contactado por WhatsApp
   const handleToggleContacted = async (sectionId, contact, forceValue = null) => {
-    const newValue = typeof forceValue === 'boolean' ? forceValue : !contact.contacted;
+    const nextVal = typeof forceValue === 'boolean' ? forceValue : !contact.contacted;
     try {
       const res = await fetch(`${backendUrl}/api/sections/${sectionId}/contacts/${contact.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contacted: newValue })
+        body: JSON.stringify({ contacted: nextVal })
       });
       const data = await res.json();
       if (data.success && data.section) {
-        setSections(prev => prev.map(s => (s.id === sectionId ? data.section : s)));
+        setSections((prev) => prev.map((s) => (s.id === sectionId ? data.section : s)));
       }
     } catch (err) {
-      console.error('Error actualizando estado de contacto:', err);
+      console.error('Error actualizando contacto:', err);
     }
   };
 
-  // Copy text to clipboard helper
-  const handleCopyText = (text, idKey) => {
+  // Copiar texto al portapapeles
+  const handleCopyText = (text, key) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
-    setCopiedId(idKey);
-    setTimeout(() => setCopiedId(null), 1800);
+    setCopiedId(key);
+    setTimeout(() => setCopiedId(null), 1600);
   };
 
-  // Build personalized WhatsApp message for a contact
+  // Construir mensaje y link de WhatsApp para un contacto
   const buildWhatsAppMessage = (contact) => {
     if (customMessages[contact.id] !== undefined) {
       return customMessages[contact.id];
@@ -475,7 +628,6 @@ export default function App() {
       .replace(/\{web\}/gi, contact.website || '');
   };
 
-  // Build wa.me URL for a contact
   const buildWhatsAppUrl = (contact) => {
     const cleanPhone = (contact.whatsappPhone || contact.phone || '').replace(/\D/g, '');
     if (!cleanPhone) return null;
@@ -483,32 +635,62 @@ export default function App() {
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
   };
 
-  // Live Scraper Metrics
-  const liveMetrics = {
-    total: liveResults.length,
-    withWhatsApp: liveResults.filter(r => Boolean(r.whatsappPhone || r.phone || r.whatsapp)).length,
-    withOwnWeb: liveResults.filter(r => r.digitalStatus === 'web_y_redes' || r.digitalStatus === 'solo_web').length,
-    withSocials: liveResults.filter(r => Boolean(r.instagram || r.facebook || r.tiktok || r.linkedin || r.twitter)).length,
-    withoutWeb: liveResults.filter(r => r.digitalStatus === 'sin_web' || r.digitalStatus === 'solo_redes').length
+  // Abrir panel lateral en vista de secciones o de contactos
+  const openDrawer = (view = 'sections', sectionId = null) => {
+    setMenuAppsOpen(false);
+    if (sectionId) {
+      setActiveSectionId(sectionId);
+    }
+    fetchSectionsAndSettings(sectionId || activeSectionId);
+    setDrawerView(view);
+    setDrawerOpen(true);
   };
 
-  const filteredLiveResults = liveResults.filter(item => {
-    if (liveFilterTab === 'con_whatsapp') return Boolean(item.whatsappPhone || item.phone || item.whatsapp);
-    if (liveFilterTab === 'con_web') return item.digitalStatus === 'web_y_redes' || item.digitalStatus === 'solo_web';
-    if (liveFilterTab === 'sin_web') return item.digitalStatus === 'sin_web' || item.digitalStatus === 'solo_redes';
-    if (liveFilterTab === 'con_redes') return Boolean(item.instagram || item.facebook || item.tiktok || item.linkedin || item.twitter);
-    return true;
-  });
+  const closeAllOverlays = () => {
+    setDrawerOpen(false);
+    setMenuAppsOpen(false);
+  };
 
-  // Active Section for Outreach View
-  const activeSection = sections.find(s => s.id === activeSectionId) || null;
+  // Métricas e indicadores en vivo
+  const liveCount = liveResults.length;
+  const progressPct =
+    currentLimit.limit === null
+      ? 100
+      : Math.min(100, Math.round((liveCount / currentLimit.limit) * 100));
+
+  const countWithWhatsApp = liveResults.filter((r) =>
+    Boolean(r.whatsappPhone || r.phone || r.whatsapp)
+  ).length;
+  const countWithOwnWeb = liveResults.filter(
+    (r) =>
+      r.digitalStatus === 'web_propia' ||
+      r.digitalStatus === 'web_y_redes' ||
+      r.digitalStatus === 'solo_web' ||
+      Boolean(r.website)
+  ).length;
+  const countWithSocials = liveResults.filter(
+    (r) =>
+      r.digitalStatus === 'solo_redes' ||
+      Boolean(r.instagram || r.facebook || r.tiktok || r.linkedin)
+  ).length;
+  const countWithoutWeb = liveResults.filter(
+    (r) =>
+      r.digitalStatus === 'sin_web' ||
+      r.digitalStatus === 'solo_redes' ||
+      !r.website
+  ).length;
+
+  // Los 4 comercios más nuevos arriba para la lista en vivo
+  const latestFourBusinesses = [...liveResults].reverse().slice(0, 4);
+
+  // Sección activa para la vista de Outreach en el panel lateral
+  const activeSection = sections.find((s) => s.id === activeSectionId) || sections[0] || null;
   const activeContacts = activeSection?.contacts || [];
 
-  const filteredSectionContacts = activeContacts.filter(c => {
+  const filteredContacts = activeContacts.filter((c) => {
     if (contactFilter === 'pendientes' && c.contacted) return false;
     if (contactFilter === 'contactados' && !c.contacted) return false;
-    if (contactFilter === 'con_whatsapp' && !c.whatsappPhone && !c.phone) return false;
-    if (contactFilter === 'con_web' && !c.website) return false;
+    if (contactFilter === 'con_whatsapp' && !c.phone && !c.whatsappPhone) return false;
     if (contactFilter === 'sin_web' && c.website) return false;
 
     if (contactSearch.trim()) {
@@ -523,1257 +705,1347 @@ export default function App() {
     return true;
   });
 
-  const totalStoredContacts = sections.reduce((acc, s) => acc + (s.contacts?.length || 0), 0);
+  // Formateo amigable de fecha para las tarjetas de sección
+  const formatSectionDate = (isoStr) => {
+    if (!isoStr) return 'Hoy';
+    try {
+      const date = new Date(isoStr);
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      const timeStr = date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      if (isToday) return `Hoy, ${timeStr}`;
+      return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return 'Reciente';
+    }
+  };
+
+  // Mosaicos del menú de 9 puntos según especificación
+  const appMenuTiles = [
+    {
+      etiqueta: 'Buscador',
+      icono: 'buscar',
+      fondo: '#e8f0fe',
+      color: '#1967d2',
+      onClick: () => {
+        setMenuAppsOpen(false);
+        setDrawerOpen(false);
+        setPageState('idle');
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
+    },
+    {
+      etiqueta: 'Mis secciones',
+      icono: 'carpeta',
+      fondo: '#fef7e0',
+      color: '#b06000',
+      onClick: () => openDrawer('sections')
+    },
+    {
+      etiqueta: 'WhatsApp',
+      icono: 'chat',
+      fondo: '#e6f4ea',
+      color: '#137333',
+      onClick: () => openDrawer(sections.length > 0 ? 'contacts' : 'sections')
+    },
+    {
+      etiqueta: 'Excel',
+      icono: 'tabla',
+      fondo: '#e6f4ea',
+      color: '#137333',
+      onClick: () => {
+        setMenuAppsOpen(false);
+        if (liveResults.length > 0 || lastScrapedSectionId || activeSectionId) {
+          handleDownloadLiveExcel();
+        } else {
+          openDrawer('sections');
+        }
+      }
+    },
+    {
+      etiqueta: 'Mensaje',
+      icono: 'editar',
+      fondo: '#f3e8fd',
+      color: '#8430ce',
+      onClick: () => openDrawer('template')
+    },
+    {
+      etiqueta: 'Ajustes',
+      icono: 'ajustes',
+      fondo: '#f1f3f4',
+      color: '#3c4043',
+      onClick: () => openDrawer('settings')
+    }
+  ];
+
+  const rootClasses = `${pageState}${drawerOpen ? ' dr' : ''}`;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div id="pagina" className={rootClasses}>
       {/* ================================================================== */}
-      {/* TOP NAVIGATION HEADER                                              */}
+      {/* BARRA SUPERIOR (#barra_superior)                                   */}
       {/* ================================================================== */}
-      <header className="sticky top-0 z-40 bg-[#070b17]/90 backdrop-blur-xl border-b border-slate-800/80">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          {/* Brand Logo */}
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-emerald-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 border border-white/10">
-              <Compass className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-xl font-extrabold tracking-tight text-white">
-                  MAPS <span className="text-indigo-400">SCRAPER</span> & <span className="text-emerald-400">WHATSAPP</span>
-                </h1>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
-                  App Local
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">
-                Buscador universal de comercios en Google Maps, reportes Excel y envío de WhatsApp por secciones
-              </p>
-            </div>
-          </div>
+      <header id="barra_superior" className="rise-1">
+        <div id="estado_app">
+          <span className="status-dot" aria-hidden="true" />
+          <span>App local</span>
+        </div>
 
-          {/* Main Section Switcher Tabs */}
-          <div className="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 w-full md:w-auto">
-            <button
-              onClick={() => setMainView('scraper')}
-              className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                mainView === 'scraper'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <Search className="w-4 h-4" />
-              <span>Buscador Google Maps</span>
-              {isScraping && (
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-              )}
-            </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="boton_mis_secciones"
+            type="button"
+            onClick={() => openDrawer('sections')}
+          >
+            <span>Mis secciones</span>
+            <span className="section-badge">{sections.length}</span>
+          </button>
 
-            <button
-              onClick={() => {
-                fetchSectionsAndSettings(activeSectionId);
-                setMainView('outreach');
-              }}
-              className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                mainView === 'outreach'
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span>Mis Secciones & WhatsApp Outreach</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                mainView === 'outreach'
-                  ? 'bg-white text-emerald-700'
-                  : 'bg-slate-800 text-emerald-400'
-              }`}>
-                {sections.length} secc. / {totalStoredContacts}
-              </span>
-            </button>
-          </div>
+          <button
+            id="boton_menu_apps"
+            ref={menuBtnRef}
+            type="button"
+            className={menuAppsOpen ? 'active' : ''}
+            aria-label="Todas las herramientas"
+            onClick={() => setMenuAppsOpen((prev) => !prev)}
+          >
+            <MaterialIcon name="apps" size={24} />
+          </button>
         </div>
       </header>
 
       {/* ================================================================== */}
-      {/* VIEW 1: UNIVERSAL GOOGLE MAPS SCRAPER & EXCEL GENERATOR            */}
+      {/* MENÚ DE 9 PUNTOS (#menu_apps)                                      */}
       {/* ================================================================== */}
-      {mainView === 'scraper' && (
-        <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Search Controls & Console (4 cols) */}
-          <section className="lg:col-span-4 flex flex-col gap-5">
-            <div className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-5 shadow-xl space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <Search className="w-4 h-4 text-indigo-400" />
-                  Buscar Comercios en Google Maps
-                </h2>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">
-                  Cualquier Rubro
-                </span>
-              </div>
-
-              {/* Search Query Input */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300 block">
-                  ¿Qué comercios y en qué lugar quieres buscar?
-                </label>
-                <div className="relative">
-                  <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    disabled={isScraping}
-                    placeholder="Ej: ferreterías en Córdoba, gimnasios en Palermo, restaurantes..."
-                    className="w-full bg-slate-950/90 border border-slate-800 focus:border-indigo-500 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none transition-colors"
-                  />
-                </div>
-
-                {/* Quick Example Chips */}
-                <div className="pt-1">
-                  <span className="text-[10px] text-slate-500 block mb-1.5">Ejemplos rápidos (clic para probar):</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {QUICK_SEARCH_EXAMPLES.slice(0, 6).map((ex) => (
-                      <button
-                        key={ex}
-                        type="button"
-                        disabled={isScraping}
-                        onClick={() => setQuery(ex)}
-                        className="text-[10px] px-2 py-1 rounded-lg bg-slate-950 hover:bg-indigo-950/50 text-slate-400 hover:text-indigo-300 border border-slate-800 hover:border-indigo-500/30 transition-colors cursor-pointer"
-                      >
-                        {ex}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Section Destination Selector */}
-              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/90 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
-                    <FolderPlus className="w-3.5 h-3.5" />
-                    Espacio / Sección donde guardar contactos:
-                  </label>
-                </div>
-
-                <select
-                  value={targetSectionChoice}
-                  onChange={(e) => setTargetSectionChoice(e.target.value)}
-                  disabled={isScraping}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                >
-                  <option value="new">✨ Crear nueva sección dedicada para esta búsqueda</option>
-                  {sections.map(s => (
-                    <option key={s.id} value={s.id}>
-                      📂 Agregar a sección existente: "{s.name}" ({s.contacts?.length || 0} contactos)
-                    </option>
-                  ))}
-                </select>
-
-                {targetSectionChoice === 'new' && (
-                  <div>
-                    <label className="text-[11px] text-slate-400 block mb-1">
-                      Nombre personalizado de la sección (opcional):
-                    </label>
-                    <input
-                      type="text"
-                      value={customSectionName}
-                      onChange={(e) => setCustomSectionName(e.target.value)}
-                      disabled={isScraping}
-                      placeholder={`Por defecto se llamará: "${query || 'Nueva Búsqueda'}"`}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Country Code for WhatsApp formatting */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-400 block">
-                  País para formatear números de WhatsApp:
-                </label>
-                <select
-                  value={countryCode}
-                  onChange={(e) => {
-                    setCountryCode(e.target.value);
-                    handleSaveSettings(whatsappTemplate, e.target.value);
-                  }}
-                  disabled={isScraping}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
-                >
-                  {COUNTRY_OPTIONS.map(c => (
-                    <option key={c.code} value={c.code}>{c.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Continuous / Infinite Search Toggle */}
-              <div className={`p-3 rounded-xl border transition-all flex items-start gap-2.5 ${
-                isInfinite
-                  ? 'bg-amber-500/10 border-amber-500/30'
-                  : 'bg-slate-950/60 border-slate-800'
-              }`}>
-                <input
-                  type="checkbox"
-                  id="isInfinite"
-                  checked={isInfinite}
-                  onChange={(e) => setIsInfinite(e.target.checked)}
-                  disabled={isScraping}
-                  className="mt-1 accent-amber-500 cursor-pointer"
-                />
-                <label htmlFor="isInfinite" className="text-xs text-slate-200 cursor-pointer select-none">
-                  <span className="font-bold text-amber-400 flex items-center gap-1">
-                    <InfinityIcon className="w-3.5 h-3.5" />
-                    Búsqueda Continua (Sin límite)
-                  </span>
-                  <span className="text-[11px] text-slate-400 block mt-0.5">
-                    Recorre toda la lista de Google Maps hasta que presiones "Detener".
-                  </span>
-                </label>
-              </div>
-
-              {/* Limit & Headful Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-400 font-medium block mb-1">
-                    {isInfinite ? 'Límite (Sin límite)' : 'Cantidad de Comercios'}
-                  </label>
-                  <div className="relative">
-                    <Hash className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="number"
-                      min="1"
-                      max="500"
-                      value={limit}
-                      onChange={(e) => setLimit(parseInt(e.target.value, 10) || 1)}
-                      disabled={isScraping || isInfinite}
-                      className={`w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-xs text-white font-mono ${
-                        isInfinite ? 'opacity-40 cursor-not-allowed' : ''
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs text-slate-400 font-medium block mb-1">
-                    Ventana del Navegador
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setHeadful(!headful)}
-                    disabled={isScraping}
-                    className={`w-full py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                      headful
-                        ? 'bg-indigo-600/15 border-indigo-500/40 text-indigo-300'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {headful ? <Eye className="w-3.5 h-3.5 text-indigo-400" /> : <EyeOff className="w-3.5 h-3.5" />}
-                    <span>{headful ? 'Visible' : 'Oculto (Rápido)'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-2 space-y-2.5">
-                {!isScraping ? (
-                  <button
-                    onClick={handleStartScraping}
-                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-sm shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
-                  >
-                    <Play className="w-4 h-4 fill-current" />
-                    Iniciar Búsqueda en Google Maps
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleStopScraping}
-                    className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-sm shadow-lg shadow-rose-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
-                  >
-                    <Square className="w-4 h-4 fill-current" />
-                    Detener y Guardar Recopilados ({liveResults.length})
-                  </button>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    onClick={handleDownloadLiveExcel}
-                    disabled={liveResults.length === 0 || isScraping}
-                    className={`py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 border transition-all ${
-                      liveResults.length > 0 && !isScraping
-                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-600/20 cursor-pointer'
-                        : 'bg-slate-950/60 text-slate-600 border-slate-800/80 cursor-not-allowed'
-                    }`}
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Descargar Excel {liveResults.length > 0 ? `(${liveResults.length})` : ''}</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      if (lastScrapedSectionId) setActiveSectionId(lastScrapedSectionId);
-                      fetchSectionsAndSettings(lastScrapedSectionId || activeSectionId);
-                      setMainView('outreach');
-                    }}
-                    disabled={liveResults.length === 0 && sections.length === 0}
-                    className={`py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 border transition-all ${
-                      liveResults.length > 0 || sections.length > 0
-                        ? 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border-emerald-500/30 cursor-pointer'
-                        : 'bg-slate-950/60 text-slate-600 border-slate-800/80 cursor-not-allowed'
-                    }`}
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>Ver en WhatsApp Outreach</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Real-time Event Console */}
-            <div className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-4 shadow-xl flex flex-col h-72">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-2.5">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                  <Terminal className="w-4 h-4 text-indigo-400" />
-                  Consola de Scrapeo en Vivo
-                </h3>
-                <span className="text-[11px] font-mono text-slate-500">{logs.length} eventos</span>
-              </div>
-              <div className="flex-1 bg-[#03060c] border border-slate-800/80 rounded-xl p-3 overflow-y-auto font-mono text-xs space-y-1.5">
-                {logs.length === 0 ? (
-                  <div className="text-slate-600 italic text-center pt-12">
-                    Consola lista. Ingresa cualquier rubro o comercio y presiona "Iniciar Búsqueda"...
-                  </div>
-                ) : (
-                  logs.map((log, index) => (
-                    <div key={index} className="leading-relaxed break-words">
-                      <span className="text-slate-600 text-[10px] mr-2">[{log.time}]</span>
-                      <span className={
-                        log.type === 'error' ? 'text-rose-400' :
-                        log.type === 'success' ? 'text-emerald-400' :
-                        log.type === 'warning' ? 'text-amber-400' :
-                        'text-sky-300'
-                      }>
-                        {log.text}
-                      </span>
-                    </div>
-                  ))
-                )}
-                <div ref={logsEndRef} />
-              </div>
-            </div>
-          </section>
-
-          {/* Right Column: Live Metrics & Results Preview (8 cols) */}
-          <section className="lg:col-span-8 flex flex-col gap-5">
-            {/* Live Metrics Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4">
-                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                  <span className="font-bold uppercase text-[10px]">Recopilados</span>
-                  <Building2 className="w-4 h-4 text-indigo-400" />
-                </div>
-                <div className="text-2xl font-extrabold text-white">{liveMetrics.total}</div>
-                <div className="text-[10px] text-slate-500">comercios totales</div>
-              </div>
-
-              <div className="bg-slate-900/70 border border-slate-800 border-l-2 border-l-emerald-500 rounded-2xl p-4">
-                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                  <span className="font-bold uppercase text-[10px]">Con Tel / WA</span>
-                  <Phone className="w-4 h-4 text-emerald-400" />
-                </div>
-                <div className="text-2xl font-extrabold text-emerald-400">{liveMetrics.withWhatsApp}</div>
-                <div className="text-[10px] text-slate-500">listos para WhatsApp</div>
-              </div>
-
-              <div className="bg-slate-900/70 border border-slate-800 border-l-2 border-l-sky-500 rounded-2xl p-4">
-                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                  <span className="font-bold uppercase text-[10px]">Con Web Propia</span>
-                  <Globe className="w-4 h-4 text-sky-400" />
-                </div>
-                <div className="text-2xl font-extrabold text-sky-400">{liveMetrics.withOwnWeb}</div>
-                <div className="text-[10px] text-slate-500">dominio web activo</div>
-              </div>
-
-              <div className="bg-slate-900/70 border border-slate-800 border-l-2 border-l-pink-500 rounded-2xl p-4">
-                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                  <span className="font-bold uppercase text-[10px]">Con Redes</span>
-                  <Share2 className="w-4 h-4 text-pink-400" />
-                </div>
-                <div className="text-2xl font-extrabold text-pink-400">{liveMetrics.withSocials}</div>
-                <div className="text-[10px] text-slate-500">IG / FB / TikTok / IN</div>
-              </div>
-
-              <div className="bg-slate-900/70 border border-slate-800 border-l-2 border-l-amber-500 rounded-2xl p-4 col-span-2 sm:col-span-1">
-                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                  <span className="font-bold uppercase text-[10px]">Sin Sitio Web</span>
-                  <EyeOff className="w-4 h-4 text-amber-400" />
-                </div>
-                <div className="text-2xl font-extrabold text-amber-400">{liveMetrics.withoutWeb}</div>
-                <div className="text-[10px] text-slate-500">solo Maps o red social</div>
-              </div>
-            </div>
-
-            {/* Progress Bar while scraping */}
-            {isScraping && (
-              <div className="bg-slate-900/80 border border-indigo-500/30 rounded-2xl p-4 space-y-2">
-                <div className="flex items-center justify-between text-xs font-semibold">
-                  <span className="text-indigo-200 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
-                    {isInfinite
-                      ? 'Extracción continua en curso (guardando automáticamente en la sección)...'
-                      : `Extrayendo y guardando comercios (${liveResults.length} de ${limit})...`}
-                  </span>
-                  <span className="font-mono text-indigo-400">{isInfinite ? `${liveResults.length} guardados` : `${progress}%`}</span>
-                </div>
-                <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-300"
-                    style={{ width: isInfinite ? '100%' : `${progress}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Live Results Panel */}
-            <div className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-5 shadow-xl flex flex-col min-h-[480px]">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-4">
-                <div>
-                  <h2 className="text-base font-bold text-white flex items-center gap-2">
-                    <Layers className="w-5 h-5 text-indigo-400" />
-                    Comercios Recopilados en esta Búsqueda
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Todos estos contactos ya se están guardando automáticamente en su sección dedicada de WhatsApp Outreach.
-                  </p>
-                </div>
-
-                {liveResults.length > 0 && (
-                  <button
-                    onClick={() => {
-                      if (lastScrapedSectionId) setActiveSectionId(lastScrapedSectionId);
-                      setMainView('outreach');
-                    }}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer self-start sm:self-auto"
-                  >
-                    <span>Abrir Grilla de WhatsApp</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Filter Tabs */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {[
-                  { id: 'todos', label: `Todos (${liveMetrics.total})` },
-                  { id: 'con_whatsapp', label: `📞 Con Teléfono/WhatsApp (${liveMetrics.withWhatsApp})` },
-                  { id: 'con_web', label: `🌐 Con Web Propia (${liveMetrics.withOwnWeb})` },
-                  { id: 'con_redes', label: `📸 Con Redes (${liveMetrics.withSocials})` },
-                  { id: 'sin_web', label: `🚀 Sin Sitio Web (${liveMetrics.withoutWeb})` }
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setLiveFilterTab(tab.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      liveFilterTab === tab.id
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                        : 'bg-slate-950/70 text-slate-400 hover:text-white border border-slate-800'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Live Results Table / Cards */}
-              {filteredLiveResults.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center py-16 text-slate-500 gap-3">
-                  <Building2 className="w-12 h-12 text-slate-700" />
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-slate-400">Todavía no hay comercios en esta vista</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Escribe cualquier búsqueda arriba a la izquierda (ej. "Restaurantes en Palermo") y pulsa Iniciar.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="overflow-x-auto flex-1">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-950/90 text-slate-400 uppercase text-[10px] border-b border-slate-800">
-                      <tr>
-                        <th className="py-3 px-3">Comercio & Rubro</th>
-                        <th className="py-3 px-3">Lugar / Dirección</th>
-                        <th className="py-3 px-3">Contacto</th>
-                        <th className="py-3 px-3">Página Web</th>
-                        <th className="py-3 px-3">Redes & Email</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/60">
-                      {filteredLiveResults.map((item, idx) => (
-                        <tr key={item.id || idx} className="hover:bg-slate-800/30 transition-colors">
-                          <td className="py-3 px-3 max-w-[200px]">
-                            <div className="font-bold text-white truncate" title={item.name}>{item.name}</div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] font-semibold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">
-                                {item.category || 'Comercio'}
-                              </span>
-                              {item.rating && (
-                                <span className="text-[10px] text-amber-400 font-mono flex items-center gap-0.5">
-                                  <Star className="w-3 h-3 fill-current" />
-                                  {item.rating} ({item.reviews})
-                                </span>
-                              )}
-                            </div>
-                          </td>
-
-                          <td className="py-3 px-3 max-w-[200px]">
-                            {item.mapsUrl ? (
-                              <a
-                                href={item.mapsUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-slate-300 hover:text-indigo-300 flex items-start gap-1 group"
-                                title="Abrir ubicación en Google Maps"
-                              >
-                                <MapPin className="w-3.5 h-3.5 text-rose-400 flex-shrink-0 mt-0.5" />
-                                <span className="line-clamp-2 group-hover:underline">{item.address || 'Ver en Maps'}</span>
-                              </a>
-                            ) : (
-                              <span className="text-slate-500">{item.address || '-'}</span>
-                            )}
-                          </td>
-
-                          <td className="py-3 px-3 font-mono whitespace-nowrap">
-                            {item.phone ? (
-                              <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                                <Phone className="w-3 h-3" />
-                                {item.phone}
-                              </span>
-                            ) : (
-                              <span className="text-slate-600">Sin teléfono</span>
-                            )}
-                          </td>
-
-                          <td className="py-3 px-3 max-w-[160px] truncate">
-                            {item.website ? (
-                              <a
-                                href={item.website}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-sky-400 hover:underline flex items-center gap-1 truncate"
-                              >
-                                <Globe className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{item.website.replace(/^https?:\/\/(www\.)?/i, '')}</span>
-                              </a>
-                            ) : (
-                              <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                Sin Web Propia
-                              </span>
-                            )}
-                          </td>
-
-                          <td className="py-3 px-3">
-                            <div className="flex flex-wrap gap-1">
-                              {item.instagram && (
-                                <a href={item.instagram} target="_blank" rel="noreferrer" className="px-2 py-0.5 rounded text-[10px] font-bold bg-pink-500/15 text-pink-400 border border-pink-500/30 hover:bg-pink-500/25">
-                                  IG
-                                </a>
-                              )}
-                              {item.facebook && (
-                                <a href={item.facebook} target="_blank" rel="noreferrer" className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30 hover:bg-blue-500/25">
-                                  FB
-                                </a>
-                              )}
-                              {item.tiktok && (
-                                <a href={item.tiktok} target="_blank" rel="noreferrer" className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30 hover:bg-purple-500/25">
-                                  TikTok
-                                </a>
-                              )}
-                              {item.linkedin && (
-                                <a href={item.linkedin} target="_blank" rel="noreferrer" className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25">
-                                  IN
-                                </a>
-                              )}
-                              {item.email && item.email.length > 0 && (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 truncate max-w-[140px]" title={item.email.join(', ')}>
-                                  ✉ {item.email[0]}
-                                </span>
-                              )}
-                              {!item.instagram && !item.facebook && !item.tiktok && !item.linkedin && (!item.email || item.email.length === 0) && (
-                                <span className="text-slate-600">-</span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </section>
-        </main>
+      {menuAppsOpen && (
+        <div id="menu_apps" ref={menuAppsRef} role="menu" aria-label="Menú de herramientas">
+          {appMenuTiles.map((tile, idx) => (
+            <button
+              key={tile.etiqueta}
+              type="button"
+              className="app-tile"
+              style={{ animationDelay: `${idx * 45}ms` }}
+              onClick={tile.onClick}
+            >
+              <span
+                className="app-tile-icon"
+                style={{ backgroundColor: tile.fondo, color: tile.color }}
+              >
+                <MaterialIcon name={tile.icono} size={24} />
+              </span>
+              <span className="app-tile-label">{tile.etiqueta}</span>
+            </button>
+          ))}
+        </div>
       )}
 
       {/* ================================================================== */}
-      {/* VIEW 2: DEDICATED SECTIONS & WHATSAPP OUTREACH GRID                */}
+      {/* ESCENARIO CENTRAL (#escenario)                                     */}
       {/* ================================================================== */}
-      {mainView === 'outreach' && (
-        <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Sidebar: Dedicated Search Sections (3 cols) */}
-          <aside className="lg:col-span-3 bg-slate-900/75 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-4 shadow-xl flex flex-col gap-4 lg:sticky lg:top-24">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+      <main id="escenario">
+        {/* 1. Título (Visible en idle) */}
+        <h1 className="stage-title rise-2">¿Qué comercios buscamos?</h1>
+
+        {/* 2. Buscador Pastilla de 64px con borde conic-gradient */}
+        <div className="search-pill-outer rise-3">
+          <div className="search-pill-inner">
+            <MaterialIcon
+              name="pin"
+              size={24}
+              style={{ color: '#5f6368', flexShrink: 0 }}
+            />
+
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="search-input"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (pageState === 'run') {
+                    handleStopAndSave();
+                  } else {
+                    handleStartSearch();
+                  }
+                }
+              }}
+              placeholder="Ferreterías en Caballito, gimnasios en Palermo…"
+              aria-label="Buscar comercios"
+            />
+
+            <button
+              type="button"
+              className="search-submit-btn"
+              onClick={handleSearchButtonClick}
+              aria-label={pageState === 'run' ? 'Detener y guardar' : 'Buscar'}
+            >
+              <MaterialIcon
+                name={pageState === 'run' ? 'detener' : 'buscar'}
+                size={24}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* 3. Cuatro Chips de Ajustes que rotan con cada clic */}
+        <div className="chips-row rise-4">
+          {/* Chip 1: Destino */}
+          <button
+            type="button"
+            className="setting-chip"
+            aria-label="Destino: tocar para cambiar"
+            onClick={() => handleRotateChip('destino')}
+          >
+            <MaterialIcon name="carpeta" size={18} className="setting-chip-icon" />
+            <span className={chipFlip.destino ? 'chip-val-a' : 'chip-val-b'}>
+              {currentDest.label}
+            </span>
+          </button>
+
+          {/* Chip 2: País de WhatsApp */}
+          <button
+            type="button"
+            className="setting-chip"
+            aria-label="País de WhatsApp: tocar para cambiar"
+            onClick={() => handleRotateChip('pais')}
+          >
+            <MaterialIcon name="mundo" size={18} className="setting-chip-icon" />
+            <span className={chipFlip.pais ? 'chip-val-a' : 'chip-val-b'}>
+              {currentCountry.label}
+            </span>
+          </button>
+
+          {/* Chip 3: Cantidad */}
+          <button
+            type="button"
+            className="setting-chip"
+            aria-label="Cantidad: tocar para cambiar"
+            onClick={() => handleRotateChip('cantidad')}
+          >
+            <MaterialIcon name="lista" size={18} className="setting-chip-icon" />
+            <span className={chipFlip.cantidad ? 'chip-val-a' : 'chip-val-b'}>
+              {currentLimit.label}
+            </span>
+          </button>
+
+          {/* Chip 4: Navegador */}
+          <button
+            type="button"
+            className="setting-chip"
+            aria-label="Navegador: tocar para cambiar"
+            onClick={() => handleRotateChip('navegador')}
+          >
+            <MaterialIcon name="ojo" size={18} className="setting-chip-icon" />
+            <span className={chipFlip.navegador ? 'chip-val-a' : 'chip-val-b'}>
+              {currentBrowser.label}
+            </span>
+          </button>
+        </div>
+
+        {/* 4. Sugerencias rápidas (Visibles en idle) */}
+        <div className="suggestions-row rise-5">
+          {SUGGESTION_ITEMS.map((item) => (
+            <button
+              key={item}
+              type="button"
+              className="suggestion-pill"
+              onClick={() => {
+                setQuery(item);
+                searchInputRef.current?.focus();
+              }}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+
+        {/* 5. Panel en Vivo (Visible en run y done) */}
+        <section className="live-panel-grid" aria-live="polite">
+          <div className="live-panel-inner">
+            {/* Encabezado con contador de 56px y botones de acción */}
+            <div className="live-header">
               <div>
-                <h2 className="text-sm font-extrabold text-white flex items-center gap-2">
-                  <FolderOpen className="w-4 h-4 text-emerald-400" />
-                  Secciones de Búsqueda
-                </h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Espacios dedicados por cada búsqueda
-                </p>
+                <div
+                  className={`live-counter-num ${
+                    counterFlip ? 'chip-val-a' : 'chip-val-b'
+                  }`}
+                >
+                  {liveCount}
+                </div>
+                <div className="live-counter-sub">
+                  {pageState === 'run'
+                    ? 'comercios recopilados'
+                    : 'comercios guardados en tu sección'}
+                </div>
               </div>
+
+              <div className="flex items-center gap-2.5">
+                {pageState === 'run' && (
+                  <button
+                    type="button"
+                    className="btn-tonal"
+                    onClick={handleStopAndSave}
+                  >
+                    Detener y guardar
+                  </button>
+                )}
+
+                {pageState === 'done' && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn-tonal"
+                      onClick={handleDownloadLiveExcel}
+                    >
+                      Descargar Excel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() =>
+                        openDrawer(
+                          'contacts',
+                          lastScrapedSectionId || activeSectionId
+                        )
+                      }
+                    >
+                      Ver en Outreach
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Barra de progreso de 4px */}
+            <div className="live-progress-track">
+              <div
+                className="live-progress-fill"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+
+            {/* 4 Indicadores de presencia digital y WhatsApp */}
+            <div className="live-indicators">
+              <div className="live-indicator-item">
+                <span
+                  className="live-indicator-dot"
+                  style={{ backgroundColor: '#1e8e3e' }}
+                />
+                <span className="live-indicator-count">{countWithWhatsApp}</span>
+                <span>con WhatsApp</span>
+              </div>
+
+              <div className="live-indicator-item">
+                <span
+                  className="live-indicator-dot"
+                  style={{ backgroundColor: '#1a73e8' }}
+                />
+                <span className="live-indicator-count">{countWithOwnWeb}</span>
+                <span>con web propia</span>
+              </div>
+
+              <div className="live-indicator-item">
+                <span
+                  className="live-indicator-dot"
+                  style={{ backgroundColor: '#8430ce' }}
+                />
+                <span className="live-indicator-count">{countWithSocials}</span>
+                <span>con redes</span>
+              </div>
+
+              <div className="live-indicator-item">
+                <span
+                  className="live-indicator-dot"
+                  style={{ backgroundColor: '#e37400' }}
+                />
+                <span className="live-indicator-count">{countWithoutWeb}</span>
+                <span>sin web, oportunidad</span>
+              </div>
+            </div>
+
+            {/* Lista de los 4 comercios más recientes con máscara inferior */}
+            <div className="live-business-list">
+              {latestFourBusinesses.map((biz, idx) => {
+                const avatarStyle = AVATAR_PALETTE[idx % AVATAR_PALETTE.length];
+                const initial = (biz.name || 'C').trim().charAt(0).toUpperCase();
+                const detailText =
+                  biz.detalle ||
+                  `${biz.category || 'Comercio'} · ${biz.address || 'Google Maps'}`;
+
+                let presenceKey = biz.digitalStatus || 'sin_web';
+                if (!DIGITAL_PRESENCE_TAGS[presenceKey]) {
+                  if (biz.website) presenceKey = 'web_propia';
+                  else if (biz.instagram || biz.facebook || biz.tiktok || biz.linkedin)
+                    presenceKey = 'solo_redes';
+                  else presenceKey = 'sin_web';
+                }
+                const badge = DIGITAL_PRESENCE_TAGS[presenceKey];
+
+                return (
+                  <div
+                    key={biz.id || `${biz.name}_${idx}`}
+                    className={`live-business-row ${
+                      idx === 0 ? (rowFlip ? 'row-anim-a' : 'row-anim-b') : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        className="business-avatar"
+                        style={{
+                          backgroundColor: avatarStyle.fondo,
+                          color: avatarStyle.texto
+                        }}
+                      >
+                        {initial}
+                      </span>
+                      <div className="min-w-0">
+                        <div
+                          className="truncate"
+                          style={{ fontSize: '15px', fontWeight: 400, color: '#1f1f1f' }}
+                        >
+                          {biz.name}
+                        </div>
+                        <div
+                          className="truncate"
+                          style={{ fontSize: '13px', fontWeight: 400, color: '#5f6368' }}
+                        >
+                          {detailText}
+                        </div>
+                      </div>
+                    </div>
+
+                    <span
+                      className="presence-badge"
+                      style={{
+                        backgroundColor: badge.fondo,
+                        color: badge.texto
+                      }}
+                    >
+                      {badge.etiqueta}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* ================================================================== */}
+      {/* PIE DE PÁGINA (#pie)                                               */}
+      {/* ================================================================== */}
+      <footer id="pie">Todo se guarda en tu equipo</footer>
+
+      {/* ================================================================== */}
+      {/* SCRIM (#scrim)                                                     */}
+      {/* ================================================================== */}
+      <div
+        id="scrim"
+        className={drawerOpen ? 'open' : ''}
+        onClick={closeAllOverlays}
+        aria-hidden="true"
+      />
+
+      {/* ================================================================== */}
+      {/* PANEL LATERAL DERECHO (#panel_secciones)                           */}
+      {/* ================================================================== */}
+      <aside
+        id="panel_secciones"
+        className={`${drawerOpen ? 'open' : ''} ${
+          drawerView === 'contacts' ? 'expanded' : ''
+        }`}
+        aria-label="Panel lateral de secciones y herramientas"
+      >
+        {/* ---------------------------------------------------------------- */}
+        {/* VISTA 1 DEL PANEL: LISTADO DE MIS SECCIONES                      */}
+        {/* ---------------------------------------------------------------- */}
+        {drawerView === 'sections' && (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <h2 style={{ fontSize: '22px', fontWeight: 500, margin: 0 }}>
+                Mis secciones
+              </h2>
               <button
-                onClick={handleCreateManualSection}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white transition-colors cursor-pointer"
-                title="Crear nueva sección vacía"
+                type="button"
+                className="card-icon-btn"
+                aria-label="Cerrar"
+                onClick={closeAllOverlays}
               >
-                <FolderPlus className="w-4 h-4" />
+                <MaterialIcon name="cerrar" size={22} />
               </button>
             </div>
 
-            {sections.length === 0 ? (
-              <div className="py-12 px-3 text-center space-y-3">
-                <FolderOpen className="w-10 h-10 text-slate-600 mx-auto" />
-                <p className="text-xs text-slate-400">
-                  Aún no hay secciones guardadas. Realiza una búsqueda en Google Maps para crear tu primera sección automáticamente.
-                </p>
-                <button
-                  onClick={() => setMainView('scraper')}
-                  className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer"
+            {/* Botón Nueva sección (tonal, ancho completo, pastilla) */}
+            <button
+              type="button"
+              className="btn-tonal w-full mb-4"
+              style={{ height: '44px' }}
+              onClick={handleCreateManualSection}
+            >
+              <MaterialIcon name="agregar" size={20} />
+              <span>Nueva sección</span>
+            </button>
+
+            {/* Lista de tarjetas de sección */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {sections.length === 0 ? (
+                <div
+                  className="text-center py-12 px-4 rounded-[20px]"
+                  style={{ border: '1px dashed #dadce0', color: '#5f6368' }}
                 >
-                  Ir al Buscador Maps
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2.5 max-h-[65vh] overflow-y-auto pr-1">
-                {sections.map((sec) => {
-                  const isSelected = sec.id === activeSectionId;
+                  <p style={{ fontSize: '14px', margin: '0 0 6px 0', color: '#1f1f1f' }}>
+                    Aún no tenés secciones guardadas
+                  </p>
+                  <p style={{ fontSize: '13px', margin: 0 }}>
+                    Hacé una búsqueda en el buscador principal para crear tu primera sección automáticamente.
+                  </p>
+                </div>
+              ) : (
+                sections.map((sec) => {
                   const total = sec.contacts?.length || 0;
-                  const contactedCount = (sec.contacts || []).filter(c => c.contacted).length;
-                  const pct = total > 0 ? Math.round((contactedCount / total) * 100) : 0;
+                  const contacted = (sec.contacts || []).filter((c) => c.contacted).length;
+                  const pct = total > 0 ? Math.round((contacted / total) * 100) : 0;
 
                   return (
                     <div
                       key={sec.id}
-                      onClick={() => setActiveSectionId(sec.id)}
-                      className={`p-3.5 rounded-xl border transition-all cursor-pointer group ${
-                        isSelected
-                          ? 'bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-900 border-emerald-500/50 shadow-lg shadow-emerald-950/30'
-                          : 'bg-slate-950/70 hover:bg-slate-900 border-slate-800/80 hover:border-slate-700'
-                      }`}
+                      className="section-card"
+                      onClick={() => {
+                        setActiveSectionId(sec.id);
+                        setDrawerView('contacts');
+                      }}
                     >
                       <div className="flex items-start justify-between gap-2">
                         {renamingSectionId === sec.id ? (
-                          <div className="flex items-center gap-1 flex-1" onClick={e => e.stopPropagation()}>
+                          <div
+                            className="flex items-center gap-2 flex-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <input
                               type="text"
                               value={renameSectionValue}
-                              onChange={e => setRenameSectionValue(e.target.value)}
-                              onKeyDown={e => e.key === 'Enter' && handleRenameSection(sec.id)}
+                              onChange={(e) => setRenameSectionValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRenameSection(sec.id, e);
+                              }}
                               autoFocus
-                              className="w-full bg-slate-900 border border-emerald-500 rounded px-2 py-1 text-xs text-white"
+                              className="flex-1 px-3 py-1.5 rounded-full text-sm"
+                              style={{ border: '1px solid #1a73e8' }}
                             />
                             <button
-                              onClick={() => handleRenameSection(sec.id)}
-                              className="p-1 bg-emerald-600 text-white rounded text-xs"
+                              type="button"
+                              className="btn-primary"
+                              style={{ height: '32px', padding: '0 12px', fontSize: '12px' }}
+                              onClick={(e) => handleRenameSection(sec.id, e)}
                             >
-                              <Check className="w-3.5 h-3.5" />
+                              Guardar
                             </button>
                           </div>
                         ) : (
                           <div className="min-w-0 flex-1">
-                            <h3 className={`text-xs font-extrabold truncate ${isSelected ? 'text-emerald-300' : 'text-white'}`}>
+                            <div
+                              className="truncate"
+                              style={{ fontSize: '16px', fontWeight: 500, color: '#1f1f1f' }}
+                            >
                               {sec.name}
-                            </h3>
-                            <p className="text-[10px] text-slate-500 mt-0.5">
-                              {new Date(sec.createdAt).toLocaleDateString('es-AR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </p>
+                            </div>
+                            <div
+                              style={{
+                                fontSize: '13px',
+                                color: '#5f6368',
+                                marginTop: '2px'
+                              }}
+                            >
+                              {formatSectionDate(sec.createdAt)}
+                            </div>
                           </div>
                         )}
 
-                        {/* Section Action Buttons: Rename, Excel, Delete Entire Section */}
-                        <div className="flex items-center gap-1 flex-shrink-0">
+                        {/* 3 acciones de sección: Renombrar, Descargar Excel, Borrar sección */}
+                        <div className="flex items-center gap-0.5 flex-shrink-0">
                           <button
+                            type="button"
+                            className="card-icon-btn"
+                            aria-label="Renombrar"
+                            title="Renombrar"
                             onClick={(e) => {
                               e.stopPropagation();
                               setRenamingSectionId(sec.id);
                               setRenameSectionValue(sec.name);
                             }}
-                            className="p-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
-                            title="Renombrar sección"
                           >
-                            <Edit3 className="w-3 h-3" />
+                            <MaterialIcon name="editar" size={18} />
                           </button>
 
                           <button
+                            type="button"
+                            className="card-icon-btn"
+                            aria-label="Descargar Excel"
+                            title="Descargar Excel"
+                            disabled={exportingSectionId === sec.id}
                             onClick={(e) => handleDownloadSectionExcel(sec, e)}
-                            disabled={exportingSectionId === sec.id || total === 0}
-                            className="p-1.5 rounded-lg bg-slate-900/90 hover:bg-indigo-600/30 text-indigo-400 hover:text-indigo-200 transition-colors"
-                            title="Descargar Excel de esta sección"
                           >
-                            <Download className="w-3 h-3" />
+                            <MaterialIcon name="descargar" size={18} />
                           </button>
 
                           <button
+                            type="button"
+                            className="card-icon-btn danger"
+                            aria-label="Borrar sección"
+                            title="Borrar sección"
                             onClick={(e) => handleDeleteSection(sec, e)}
-                            className="p-1.5 rounded-lg bg-slate-900/90 hover:bg-rose-600/30 text-slate-400 hover:text-rose-400 transition-colors"
-                            title="Borrar esta sección entera y todos sus contactos"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <MaterialIcon name="borrar" size={18} />
                           </button>
                         </div>
                       </div>
 
-                      {/* Contacts Progress inside Section */}
-                      <div className="mt-3 space-y-1.5">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-semibold text-slate-300">{total} comercios</span>
-                          <span className="text-emerald-400 font-mono">
-                            {contactedCount}/{total} contactados ({pct}%)
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-emerald-500 transition-all duration-300"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
+                      {/* Barra de progreso verde de 6px */}
+                      <div
+                        className="w-full overflow-hidden mt-3 mb-2"
+                        style={{
+                          height: '6px',
+                          borderRadius: '6px',
+                          backgroundColor: '#e8eaed'
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${pct}%`,
+                            height: '100%',
+                            borderRadius: '6px',
+                            backgroundColor: '#1e8e3e',
+                            transition: 'width 0.3s cubic-bezier(.2,.9,.2,1)'
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span style={{ fontSize: '13px', color: '#5f6368' }}>
+                          {contacted} de {total} contactados
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            color: '#1a73e8'
+                          }}
+                        >
+                          Ver contactos →
+                        </span>
                       </div>
                     </div>
                   );
-                })}
-              </div>
-            )}
-          </aside>
+                })
+              )}
+            </div>
+          </>
+        )}
 
-          {/* Right Main Area: Section Header, WhatsApp Template & Button Grid of Contacts (9 cols) */}
-          <section className="lg:col-span-9 flex flex-col gap-5">
-            {!activeSection ? (
-              <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-16 text-center space-y-4">
-                <MessageSquare className="w-14 h-14 text-slate-700 mx-auto" />
-                <h3 className="text-lg font-bold text-white">Selecciona o crea una sección de búsqueda</h3>
-                <p className="text-xs text-slate-400 max-w-md mx-auto">
-                  Cada vez que realices una búsqueda en el Buscador de Google Maps, se creará aquí una sección dedicada con todos los comercios listos para contactar por WhatsApp.
-                </p>
+        {/* ---------------------------------------------------------------- */}
+        {/* VISTA 2 DEL PANEL: CONTACTOS DE LA SECCIÓN & WHATSAPP OUTREACH   */}
+        {/* ---------------------------------------------------------------- */}
+        {drawerView === 'contacts' && (
+          <>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2 min-w-0">
                 <button
-                  onClick={() => setMainView('scraper')}
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer"
+                  type="button"
+                  className="btn-tonal"
+                  style={{ height: '36px', padding: '0 14px', fontSize: '13px' }}
+                  onClick={() => setDrawerView('sections')}
                 >
-                  Ir a Buscar Comercios en Google Maps
+                  ← Secciones
+                </button>
+                <h2
+                  className="truncate"
+                  style={{ fontSize: '20px', fontWeight: 500, margin: 0 }}
+                  title={activeSection?.name}
+                >
+                  {activeSection?.name || 'Contactos'}
+                </h2>
+              </div>
+
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {activeSection && (
+                  <>
+                    <button
+                      type="button"
+                      className="card-icon-btn"
+                      aria-label="Editar plantilla de WhatsApp"
+                      title="Configurar plantilla de WhatsApp"
+                      onClick={() => setDrawerView('template')}
+                    >
+                      <MaterialIcon name="editar" size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      className="card-icon-btn"
+                      aria-label="Descargar Excel"
+                      title="Descargar Excel de esta sección"
+                      onClick={(e) => handleDownloadSectionExcel(activeSection, e)}
+                    >
+                      <MaterialIcon name="descargar" size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      className="card-icon-btn danger"
+                      aria-label="Borrar sección"
+                      title="Borrar esta sección entera"
+                      onClick={(e) => handleDeleteSection(activeSection, e)}
+                    >
+                      <MaterialIcon name="borrar" size={18} />
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="card-icon-btn"
+                  aria-label="Cerrar"
+                  onClick={closeAllOverlays}
+                >
+                  <MaterialIcon name="cerrar" size={22} />
                 </button>
               </div>
-            ) : (
-              <>
-                {/* Active Section Top Header */}
-                <div className="bg-slate-900/75 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-5 shadow-xl space-y-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-                    <div>
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-extrabold">
-                          📂 Sección Activa
-                        </span>
-                        <h2 className="text-xl font-extrabold text-white">{activeSection.name}</h2>
-                      </div>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Búsqueda original: <span className="text-slate-300 font-medium">"{activeSection.query}"</span> ·{' '}
-                        <span className="text-emerald-400 font-semibold">{activeContacts.length} contactos guardados</span>
-                      </p>
-                    </div>
+            </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={() => setShowTemplateEditor(!showTemplateEditor)}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
-                          showTemplateEditor
-                            ? 'bg-indigo-600 text-white border-indigo-500'
-                            : 'bg-slate-950 hover:bg-slate-800 text-indigo-300 border-indigo-500/30'
-                        }`}
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>Configurar Mensaje WhatsApp</span>
-                      </button>
+            {/* Buscador interno y chips de filtro */}
+            <div className="space-y-2.5 mb-3">
+              <div
+                className="flex items-center gap-2 px-3.5 py-2 rounded-full"
+                style={{ backgroundColor: '#f1f3f4' }}
+              >
+                <MaterialIcon name="buscar" size={18} style={{ color: '#5f6368' }} />
+                <input
+                  type="text"
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
+                  placeholder="Filtrar por nombre, dirección o teléfono…"
+                  aria-label="Filtrar contactos de la sección"
+                  className="flex-1 bg-transparent border-none text-sm focus:outline-none"
+                  style={{ color: '#1f1f1f' }}
+                />
+              </div>
 
-                      <button
-                        onClick={(e) => handleDownloadSectionExcel(activeSection, e)}
-                        disabled={activeContacts.length === 0 || exportingSectionId === activeSection.id}
-                        className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Descargar Excel ({activeContacts.length})</span>
-                      </button>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { id: 'todos', label: `Todos (${activeContacts.length})` },
+                  {
+                    id: 'pendientes',
+                    label: `Pendientes (${activeContacts.filter((c) => !c.contacted).length})`
+                  },
+                  {
+                    id: 'contactados',
+                    label: `Contactados (${activeContacts.filter((c) => c.contacted).length})`
+                  },
+                  {
+                    id: 'con_whatsapp',
+                    label: `Con teléfono (${
+                      activeContacts.filter((c) => c.phone || c.whatsappPhone).length
+                    })`
+                  },
+                  {
+                    id: 'sin_web',
+                    label: `Sin web (${activeContacts.filter((c) => !c.website).length})`
+                  }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setContactFilter(tab.id)}
+                    className="px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors"
+                    style={
+                      contactFilter === tab.id
+                        ? {
+                            backgroundColor: '#e8f0fe',
+                            color: '#174ea6',
+                            border: '1px solid #d2e3fc'
+                          }
+                        : {
+                            backgroundColor: '#ffffff',
+                            color: '#3c4043',
+                            border: '1px solid #dadce0'
+                          }
+                    }
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                      <button
-                        onClick={(e) => handleDeleteSection(activeSection, e)}
-                        className="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Borrar Sección Entera</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Collapsible WhatsApp Message Template Editor */}
-                  {showTemplateEditor && (
-                    <div className="p-4 rounded-xl bg-slate-950 border border-indigo-500/30 space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div>
-                          <h4 className="text-xs font-extrabold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5" />
-                            Plantilla de Mensaje para WhatsApp Outreach
-                          </h4>
-                          <p className="text-[11px] text-slate-400">
-                            Se reemplazará automáticamente con los datos de cada comercio al pulsar "Enviar WhatsApp".
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[10px] text-slate-400">Insertar variable:</span>
-                          {['{nombre}', '{rubro}', '{lugar}', '{web}'].map(variable => (
-                            <button
-                              key={variable}
-                              type="button"
-                              onClick={() => {
-                                const updated = `${whatsappTemplate} ${variable}`;
-                                setWhatsappTemplate(updated);
-                                handleSaveSettings(updated, countryCode);
-                              }}
-                              className="px-2 py-0.5 rounded bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono cursor-pointer"
-                            >
-                              + {variable}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <textarea
-                        rows={3}
-                        value={whatsappTemplate}
-                        onChange={(e) => setWhatsappTemplate(e.target.value)}
-                        onBlur={() => handleSaveSettings(whatsappTemplate, countryCode)}
-                        placeholder="Escribe el mensaje predeterminado para WhatsApp..."
-                        className="w-full bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded-xl p-3 text-xs text-white focus:outline-none leading-relaxed"
-                      />
-
-                      <div className="flex items-center justify-between text-[11px] text-slate-400">
-                        <span>
-                          💡 Tip: También puedes editar el mensaje individual de cualquier comercio antes de enviarlo.
-                        </span>
-                        <span className="text-emerald-400 font-semibold">
-                          {savingSettings ? 'Guardando...' : '✓ Guardado automático'}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Search & Filter Bar inside Section */}
-                  <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-                    <div className="relative flex-1 max-w-md">
-                      <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        value={contactSearch}
-                        onChange={(e) => setContactSearch(e.target.value)}
-                        placeholder="Filtrar por nombre, dirección, rubro o teléfono..."
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl pl-10 pr-4 py-2 text-xs text-white focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {[
-                        { id: 'todos', label: `Todos (${activeContacts.length})` },
-                        { id: 'pendientes', label: `⏳ Pendientes (${activeContacts.filter(c => !c.contacted).length})` },
-                        { id: 'contactados', label: `✅ Contactados (${activeContacts.filter(c => c.contacted).length})` },
-                        { id: 'con_whatsapp', label: `📞 Con Teléfono (${activeContacts.filter(c => c.phone || c.whatsappPhone).length})` },
-                        { id: 'con_web', label: `🌐 Con Web (${activeContacts.filter(c => c.website).length})` },
-                        { id: 'sin_web', label: `🚀 Sin Web (${activeContacts.filter(c => !c.website).length})` }
-                      ].map(f => (
-                        <button
-                          key={f.id}
-                          onClick={() => setContactFilter(f.id)}
-                          className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                            contactFilter === f.id
-                              ? 'bg-emerald-600 text-white shadow-sm'
-                              : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
-                          }`}
-                        >
-                          {f.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+            {/* Grilla de tarjetas de contacto con botones de Lugar, Teléfono, Web, Redes y WhatsApp */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {filteredContacts.length === 0 ? (
+                <div
+                  className="text-center py-12 px-4 rounded-[20px]"
+                  style={{ border: '1px dashed #dadce0', color: '#5f6368' }}
+                >
+                  <p style={{ fontSize: '14px', margin: 0 }}>
+                    No hay comercios en esta vista.
+                  </p>
                 </div>
+              ) : (
+                filteredContacts.map((contact, idx) => {
+                  const avatar = AVATAR_PALETTE[idx % AVATAR_PALETTE.length];
+                  const initial = (contact.name || 'C').trim().charAt(0).toUpperCase();
+                  const waUrl = buildWhatsAppUrl(contact);
+                  const previewMsg = buildWhatsAppMessage(contact);
+                  const isEditingMsg = editingContactMsgId === contact.id;
 
-                {/* ============================================================ */}
-                {/* GRID OF CONTACT CARDS WITH ACTION BUTTONS                    */}
-                {/* ============================================================ */}
-                {filteredSectionContacts.length === 0 ? (
-                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-14 text-center space-y-2">
-                    <Building2 className="w-10 h-10 text-slate-600 mx-auto" />
-                    <h4 className="text-sm font-bold text-white">No hay contactos que coincidan con este filtro</h4>
-                    <p className="text-xs text-slate-400">
-                      Prueba cambiando el filtro superior o realiza una nueva búsqueda en Google Maps.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {filteredSectionContacts.map((contact) => {
-                      const waUrl = buildWhatsAppUrl(contact);
-                      const previewMsg = buildWhatsAppMessage(contact);
-                      const isEditingMsg = editingContactMsgId === contact.id;
-                      const hasSocials = Boolean(
-                        contact.instagram || contact.facebook || contact.tiktok || contact.linkedin || contact.twitter || (contact.email && contact.email.length > 0)
-                      );
+                  let presenceKey = contact.digitalStatus || 'sin_web';
+                  if (!DIGITAL_PRESENCE_TAGS[presenceKey]) {
+                    if (contact.website) presenceKey = 'web_propia';
+                    else if (contact.instagram || contact.facebook || contact.tiktok || contact.linkedin)
+                      presenceKey = 'solo_redes';
+                    else presenceKey = 'sin_web';
+                  }
+                  const badge = DIGITAL_PRESENCE_TAGS[presenceKey];
 
-                      return (
-                        <div
-                          key={contact.id}
-                          className={`rounded-2xl border p-5 flex flex-col justify-between transition-all shadow-lg ${
-                            contact.contacted
-                              ? 'bg-slate-900/45 border-emerald-500/30'
-                              : 'bg-slate-900/80 border-slate-800/90 hover:border-indigo-500/40'
-                          }`}
-                        >
-                          <div>
-                            {/* Card Header: Name, Category, Rating & Individual Delete Button */}
-                            <div className="flex items-start justify-between gap-3 mb-3.5">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <h3 className="text-base font-extrabold text-white truncate" title={contact.name}>
-                                    {contact.name}
-                                  </h3>
-                                  {contact.contacted && (
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                                      <CheckCircle2 className="w-3 h-3" />
-                                      Contactado
-                                    </span>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
-                                    {contact.category || 'Comercio'}
-                                  </span>
-
-                                  {contact.rating && (
-                                    <span className="text-xs font-mono text-amber-400 flex items-center gap-1">
-                                      <Star className="w-3.5 h-3.5 fill-current" />
-                                      <strong>{contact.rating}</strong>
-                                      <span className="text-slate-500 text-[10px]">({contact.reviews || 0} reseñas)</span>
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Delete Individual Contact Button */}
-                              <button
-                                onClick={() => handleDeleteContact(activeSection.id, contact)}
-                                className="p-2 rounded-xl bg-slate-950/90 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-500/30 transition-all cursor-pointer flex-shrink-0"
-                                title="Borrar este contacto de la sección"
+                  return (
+                    <div
+                      key={contact.id || idx}
+                      className="rounded-[20px] p-4 transition-colors"
+                      style={{
+                        border: contact.contacted
+                          ? '1px solid #a8dab5'
+                          : '1px solid #e8eaed',
+                        backgroundColor: contact.contacted ? '#f6fbf7' : '#ffffff'
+                      }}
+                    >
+                      {/* Cabecera de la tarjeta del comercio + botón borrar contacto individual */}
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span
+                            className="business-avatar"
+                            style={{
+                              backgroundColor: avatar.fondo,
+                              color: avatar.texto
+                            }}
+                          >
+                            {initial}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className="truncate"
+                                style={{
+                                  fontSize: '15px',
+                                  fontWeight: 500,
+                                  color: '#1f1f1f'
+                                }}
                               >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                                {contact.name}
+                              </span>
+                              <span
+                                className="presence-badge"
+                                style={{
+                                  backgroundColor: badge.fondo,
+                                  color: badge.texto
+                                }}
+                              >
+                                {badge.etiqueta}
+                              </span>
                             </div>
-
-                            {/* ================================================== */}
-                            {/* WELL-DESIGNED BUTTON GRID: LUGAR, TEL, WEB, REDES */}
-                            {/* ================================================== */}
-                            <div className="grid grid-cols-2 gap-2.5 mb-3.5">
-                              {/* 1. Botón LUGAR / UBICACIÓN */}
-                              {contact.mapsUrl || contact.address ? (
-                                <a
-                                  href={contact.mapsUrl || `https://www.google.com/maps/search/${encodeURIComponent(contact.name + ' ' + contact.address)}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="p-2.5 rounded-xl bg-slate-950/90 hover:bg-rose-950/30 border border-slate-800 hover:border-rose-500/40 flex items-center gap-2.5 group transition-all"
-                                  title={contact.address || 'Ver ubicación en Google Maps'}
-                                >
-                                  <div className="w-8 h-8 rounded-lg bg-rose-500/15 border border-rose-500/30 flex items-center justify-center flex-shrink-0 text-rose-400 group-hover:scale-105 transition-transform">
-                                    <MapPin className="w-4 h-4" />
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 block">
-                                      Lugar / Maps
-                                    </span>
-                                    <span className="text-xs text-slate-200 font-medium truncate block">
-                                      {contact.address || 'Abrir en Google Maps'}
-                                    </span>
-                                  </div>
-                                  <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-rose-400 flex-shrink-0" />
-                                </a>
-                              ) : (
-                                <div className="p-2.5 rounded-xl bg-slate-950/40 border border-slate-800/50 flex items-center gap-2.5 opacity-50">
-                                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500">
-                                    <MapPin className="w-4 h-4" />
-                                  </div>
-                                  <div>
-                                    <span className="text-[10px] font-bold uppercase text-slate-500 block">Lugar</span>
-                                    <span className="text-xs text-slate-500">No especificado</span>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* 2. Botón NÚMERO DE CONTACTO (Click para copiar) */}
-                              {contact.phone ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopyText(contact.phone, `phone_${contact.id}`)}
-                                  className="p-2.5 rounded-xl bg-slate-950/90 hover:bg-emerald-950/30 border border-slate-800 hover:border-emerald-500/40 flex items-center gap-2.5 text-left group transition-all cursor-pointer"
-                                  title="Clic para copiar número de teléfono"
-                                >
-                                  <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center flex-shrink-0 text-emerald-400 group-hover:scale-105 transition-transform">
-                                    <Phone className="w-4 h-4" />
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
-                                      {copiedId === `phone_${contact.id}` ? '¡Copiado!' : 'N° Contacto'}
-                                    </span>
-                                    <span className="text-xs font-mono font-bold text-white truncate block">
-                                      {contact.phone}
-                                    </span>
-                                  </div>
-                                  {copiedId === `phone_${contact.id}` ? (
-                                    <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                                  ) : (
-                                    <Copy className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400 flex-shrink-0" />
-                                  )}
-                                </button>
-                              ) : (
-                                <div className="p-2.5 rounded-xl bg-slate-950/40 border border-slate-800/50 flex items-center gap-2.5 opacity-50">
-                                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-500">
-                                    <Phone className="w-4 h-4" />
-                                  </div>
-                                  <div>
-                                    <span className="text-[10px] font-bold uppercase text-slate-500 block">N° Contacto</span>
-                                    <span className="text-xs text-slate-500">Sin teléfono</span>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* 3. Botón PÁGINA WEB */}
-                              {contact.website ? (
-                                <a
-                                  href={contact.website}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="p-2.5 rounded-xl bg-slate-950/90 hover:bg-sky-950/30 border border-slate-800 hover:border-sky-500/40 flex items-center gap-2.5 group transition-all"
-                                  title={contact.website}
-                                >
-                                  <div className="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/30 flex items-center justify-center flex-shrink-0 text-sky-400 group-hover:scale-105 transition-transform">
-                                    <Globe className="w-4 h-4" />
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 block">
-                                      Página Web
-                                    </span>
-                                    <span className="text-xs text-slate-200 font-medium truncate block">
-                                      {contact.website.replace(/^https?:\/\/(www\.)?/i, '')}
-                                    </span>
-                                  </div>
-                                  <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-sky-400 flex-shrink-0" />
-                                </a>
-                              ) : (
-                                <div className="p-2.5 rounded-xl bg-slate-950/40 border border-slate-800/50 flex items-center gap-2.5">
-                                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
-                                    <EyeOff className="w-4 h-4" />
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400/90 block">
-                                      Página Web
-                                    </span>
-                                    <span className="text-xs text-slate-400 truncate block">
-                                      Sin Sitio Web Propio
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* 4. Grilla / Bloque de Botones REDES SOCIALES & EMAIL */}
-                              <div className="p-2.5 rounded-xl bg-slate-950/90 border border-slate-800 flex flex-col justify-center">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-pink-400 mb-1.5 flex items-center gap-1">
-                                  <Share2 className="w-3 h-3" />
-                                  Redes & Canales
-                                </span>
-                                {hasSocials ? (
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {contact.instagram && (
-                                      <a
-                                        href={contact.instagram}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="px-2 py-1 rounded-lg bg-pink-500/15 hover:bg-pink-500/30 text-pink-300 border border-pink-500/30 text-[10px] font-bold flex items-center gap-1 transition-colors"
-                                        title="Abrir Instagram"
-                                      >
-                                        <span>Instagram</span>
-                                        <ExternalLink className="w-2.5 h-2.5" />
-                                      </a>
-                                    )}
-                                    {contact.facebook && (
-                                      <a
-                                        href={contact.facebook}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="px-2 py-1 rounded-lg bg-blue-500/15 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 text-[10px] font-bold flex items-center gap-1 transition-colors"
-                                        title="Abrir Facebook"
-                                      >
-                                        <span>Facebook</span>
-                                        <ExternalLink className="w-2.5 h-2.5" />
-                                      </a>
-                                    )}
-                                    {contact.tiktok && (
-                                      <a
-                                        href={contact.tiktok}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="px-2 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 text-[10px] font-bold flex items-center gap-1 transition-colors"
-                                        title="Abrir TikTok"
-                                      >
-                                        <span>TikTok</span>
-                                        <ExternalLink className="w-2.5 h-2.5" />
-                                      </a>
-                                    )}
-                                    {contact.linkedin && (
-                                      <a
-                                        href={contact.linkedin}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="px-2 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 text-[10px] font-bold flex items-center gap-1 transition-colors"
-                                        title="Abrir LinkedIn"
-                                      >
-                                        <span>LinkedIn</span>
-                                        <ExternalLink className="w-2.5 h-2.5" />
-                                      </a>
-                                    )}
-                                    {contact.twitter && (
-                                      <a
-                                        href={contact.twitter}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="px-2 py-1 rounded-lg bg-slate-700/40 hover:bg-slate-700 text-slate-200 border border-slate-600 text-[10px] font-bold flex items-center gap-1 transition-colors"
-                                        title="Abrir X / Twitter"
-                                      >
-                                        <span>X</span>
-                                        <ExternalLink className="w-2.5 h-2.5" />
-                                      </a>
-                                    )}
-                                    {contact.email && contact.email.length > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleCopyText(contact.email[0], `email_${contact.id}`)}
-                                        className="px-2 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono flex items-center gap-1 cursor-pointer"
-                                        title={`Copiar email: ${contact.email[0]}`}
-                                      >
-                                        <Mail className="w-2.5 h-2.5" />
-                                        <span>{copiedId === `email_${contact.id}` ? '¡Email copiado!' : 'Email'}</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-slate-500">Sin redes detectadas</span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Message Preview / Individual Customizer */}
-                            <div className="bg-slate-950/75 border border-slate-800/80 rounded-xl p-3 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                  Mensaje de WhatsApp listo para enviar:
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingContactMsgId(isEditingMsg ? null : contact.id)}
-                                  className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 cursor-pointer"
-                                >
-                                  <Edit3 className="w-3 h-3" />
-                                  <span>{isEditingMsg ? 'Listo' : 'Personalizar texto'}</span>
-                                </button>
-                              </div>
-
-                              {isEditingMsg ? (
-                                <textarea
-                                  rows={3}
-                                  value={previewMsg}
-                                  onChange={(e) =>
-                                    setCustomMessages(prev => ({ ...prev, [contact.id]: e.target.value }))
-                                  }
-                                  className="w-full bg-slate-900 border border-indigo-500/50 rounded-lg p-2 text-xs text-white focus:outline-none"
-                                />
-                              ) : (
-                                <p className="text-xs text-slate-300 italic line-clamp-2 leading-relaxed">
-                                  "{previewMsg}"
-                                </p>
-                              )}
+                            <div
+                              className="truncate"
+                              style={{ fontSize: '13px', color: '#5f6368' }}
+                            >
+                              {contact.category || 'Comercio'}
+                              {contact.rating ? ` · ★ ${contact.rating}` : ''}
                             </div>
                           </div>
+                        </div>
 
-                          {/* Card Footer: Send WhatsApp Button & Mark Contacted Button */}
-                          <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2">
-                            {waUrl ? (
+                        {/* Borrar contacto individual */}
+                        <button
+                          type="button"
+                          className="card-icon-btn danger"
+                          aria-label="Borrar contacto"
+                          title="Borrar este contacto de la sección"
+                          onClick={() => handleDeleteContact(activeSection.id, contact)}
+                        >
+                          <MaterialIcon name="borrar" size={18} />
+                        </button>
+                      </div>
+
+                      {/* GRILLA 2x2 DE BOTONES: Lugar, Teléfono, Página Web y Redes */}
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        {/* 1. Botón Lugar / Google Maps */}
+                        <a
+                          href={
+                            contact.mapsUrl ||
+                            `https://www.google.com/maps/search/${encodeURIComponent(
+                              `${contact.name} ${contact.address || ''}`
+                            )}`
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-[14px] no-underline transition-colors"
+                          style={{
+                            border: '1px solid #dadce0',
+                            backgroundColor: '#f8f9fa',
+                            color: '#3c4043'
+                          }}
+                          title={contact.address || 'Abrir en Google Maps'}
+                        >
+                          <MaterialIcon
+                            name="pin"
+                            size={18}
+                            style={{ color: '#ea4335', flexShrink: 0 }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div style={{ fontSize: '11px', fontWeight: 500, color: '#5f6368' }}>
+                              Lugar / Maps
+                            </div>
+                            <div
+                              className="truncate"
+                              style={{ fontSize: '13px', color: '#1f1f1f' }}
+                            >
+                              {contact.address || 'Ver ubicación'}
+                            </div>
+                          </div>
+                        </a>
+
+                        {/* 2. Botón Número de contacto (copiar) */}
+                        <button
+                          type="button"
+                          disabled={!contact.phone}
+                          onClick={() => handleCopyText(contact.phone, `tel_${contact.id}`)}
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-[14px] text-left cursor-pointer disabled:opacity-50"
+                          style={{
+                            border: '1px solid #dadce0',
+                            backgroundColor: '#f8f9fa',
+                            color: '#3c4043'
+                          }}
+                          title="Tocar para copiar teléfono"
+                        >
+                          <MaterialIcon
+                            name="chat"
+                            size={18}
+                            style={{ color: '#1e8e3e', flexShrink: 0 }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div style={{ fontSize: '11px', fontWeight: 500, color: '#5f6368' }}>
+                              {copiedId === `tel_${contact.id}` ? '¡Copiado!' : 'Teléfono'}
+                            </div>
+                            <div
+                              className="truncate"
+                              style={{ fontSize: '13px', color: '#1f1f1f' }}
+                            >
+                              {contact.phone || 'Sin teléfono'}
+                            </div>
+                          </div>
+                        </button>
+
+                        {/* 3. Botón Página Web */}
+                        {contact.website ? (
+                          <a
+                            href={contact.website}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-[14px] no-underline"
+                            style={{
+                              border: '1px solid #d2e3fc',
+                              backgroundColor: '#e8f0fe',
+                              color: '#174ea6'
+                            }}
+                          >
+                            <MaterialIcon
+                              name="mundo"
+                              size={18}
+                              style={{ color: '#1a73e8', flexShrink: 0 }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div style={{ fontSize: '11px', fontWeight: 500 }}>
+                                Página web
+                              </div>
+                              <div className="truncate" style={{ fontSize: '13px' }}>
+                                {contact.website.replace(/^https?:\/\/(www\.)?/i, '')}
+                              </div>
+                            </div>
+                          </a>
+                        ) : (
+                          <div
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-[14px]"
+                            style={{
+                              border: '1px solid #e8eaed',
+                              backgroundColor: '#fef7e0',
+                              color: '#7a4a00'
+                            }}
+                          >
+                            <MaterialIcon
+                              name="mundo"
+                              size={18}
+                              style={{ color: '#b06000', flexShrink: 0 }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div style={{ fontSize: '11px', fontWeight: 500 }}>
+                                Página web
+                              </div>
+                              <div className="truncate" style={{ fontSize: '13px' }}>
+                                Sin web propia
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 4. Botones de Redes Sociales y Email */}
+                        <div
+                          className="flex flex-col justify-center px-3 py-2 rounded-[14px]"
+                          style={{
+                            border: '1px solid #dadce0',
+                            backgroundColor: '#f8f9fa'
+                          }}
+                        >
+                          <div style={{ fontSize: '11px', fontWeight: 500, color: '#5f6368', marginBottom: '4px' }}>
+                            Redes sociales
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {contact.instagram && (
                               <a
-                                href={waUrl}
+                                href={contact.instagram}
                                 target="_blank"
                                 rel="noreferrer"
-                                onClick={() => {
-                                  if (!contact.contacted) {
-                                    handleToggleContacted(activeSection.id, contact, true);
-                                  }
-                                }}
-                                className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all"
+                                className="px-2 py-0.5 rounded-full text-[11px] font-medium no-underline"
+                                style={{ backgroundColor: '#f3e8fd', color: '#6a1b9a' }}
                               >
-                                <MessageSquare className="w-4 h-4" />
-                                <span>Enviar WhatsApp</span>
-                                <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                                Instagram
                               </a>
-                            ) : (
-                              <div className="flex-1 py-2.5 px-4 rounded-xl bg-slate-950 text-slate-600 border border-slate-800 font-bold text-xs flex items-center justify-center gap-2 cursor-not-allowed">
-                                <Phone className="w-4 h-4" />
-                                <span>Sin Teléfono para WhatsApp</span>
-                              </div>
                             )}
-
-                            <button
-                              type="button"
-                              onClick={() => handleToggleContacted(activeSection.id, contact)}
-                              className={`py-2.5 px-3.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
-                                contact.contacted
-                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-slate-800'
-                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-                              }`}
-                              title={contact.contacted ? 'Desmarcar como contactado' : 'Marcar como contactado'}
-                            >
-                              <CheckCircle2 className="w-4 h-4" />
-                              <span>{contact.contacted ? 'Enviado' : 'Marcar'}</span>
-                            </button>
+                            {contact.facebook && (
+                              <a
+                                href={contact.facebook}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2 py-0.5 rounded-full text-[11px] font-medium no-underline"
+                                style={{ backgroundColor: '#e8f0fe', color: '#174ea6' }}
+                              >
+                                Facebook
+                              </a>
+                            )}
+                            {contact.tiktok && (
+                              <a
+                                href={contact.tiktok}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2 py-0.5 rounded-full text-[11px] font-medium no-underline"
+                                style={{ backgroundColor: '#fce8e6', color: '#c5221f' }}
+                              >
+                                TikTok
+                              </a>
+                            )}
+                            {contact.linkedin && (
+                              <a
+                                href={contact.linkedin}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2 py-0.5 rounded-full text-[11px] font-medium no-underline"
+                                style={{ backgroundColor: '#e8f0fe', color: '#1967d2' }}
+                              >
+                                LinkedIn
+                              </a>
+                            )}
+                            {contact.email && contact.email.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleCopyText(contact.email[0], `mail_${contact.id}`)
+                                }
+                                className="px-2 py-0.5 rounded-full text-[11px] font-medium border-none cursor-pointer"
+                                style={{ backgroundColor: '#e6f4ea', color: '#137333' }}
+                              >
+                                {copiedId === `mail_${contact.id}` ? '¡Email copiado!' : 'Email'}
+                              </button>
+                            )}
+                            {!contact.instagram &&
+                              !contact.facebook &&
+                              !contact.tiktok &&
+                              !contact.linkedin &&
+                              (!contact.email || contact.email.length === 0) && (
+                                <span style={{ fontSize: '12px', color: '#70757a' }}>
+                                  No detectadas
+                                </span>
+                              )}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            )}
-          </section>
-        </main>
-      )}
+                      </div>
 
-      {/* Footer */}
-      <footer className="mt-auto border-t border-slate-900 py-4 text-center text-xs text-slate-500">
-        Maps Scraper & WhatsApp Outreach · Ejecución 100% Local · Almacenamiento Persistente por Secciones
-      </footer>
+                      {/* Vista previa / edición rápida del mensaje de WhatsApp */}
+                      <div
+                        className="rounded-[14px] p-2.5 mb-3"
+                        style={{ backgroundColor: '#f8f9fa', border: '1px solid #e8eaed' }}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span style={{ fontSize: '11px', fontWeight: 500, color: '#5f6368' }}>
+                            Mensaje de WhatsApp
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditingContactMsgId(isEditingMsg ? null : contact.id)
+                            }
+                            className="border-none bg-transparent cursor-pointer"
+                            style={{ fontSize: '12px', fontWeight: 500, color: '#1a73e8' }}
+                          >
+                            {isEditingMsg ? 'Listo' : 'Editar texto'}
+                          </button>
+                        </div>
+                        {isEditingMsg ? (
+                          <textarea
+                            rows={2}
+                            value={previewMsg}
+                            onChange={(e) =>
+                              setCustomMessages((prev) => ({
+                                ...prev,
+                                [contact.id]: e.target.value
+                              }))
+                            }
+                            className="w-full rounded-lg p-2 text-xs"
+                            style={{ border: '1px solid #1a73e8', color: '#1f1f1f' }}
+                          />
+                        ) : (
+                          <div
+                            className="line-clamp-2"
+                            style={{ fontSize: '13px', color: '#3c4043' }}
+                          >
+                            {previewMsg}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Acciones inferiores: Enviar WhatsApp y Marcar contactado */}
+                      <div className="flex items-center gap-2">
+                        {waUrl ? (
+                          <a
+                            href={waUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={() => {
+                              if (!contact.contacted) {
+                                handleToggleContacted(activeSection.id, contact, true);
+                              }
+                            }}
+                            className="btn-primary flex-1 no-underline"
+                            style={{ backgroundColor: '#1e8e3e' }}
+                          >
+                            <MaterialIcon name="chat" size={18} />
+                            <span>Enviar WhatsApp</span>
+                          </a>
+                        ) : (
+                          <div
+                            className="flex-1 flex items-center justify-center rounded-full"
+                            style={{
+                              height: '40px',
+                              backgroundColor: '#f1f3f4',
+                              color: '#70757a',
+                              fontSize: '13px',
+                              fontWeight: 500
+                            }}
+                          >
+                            Sin teléfono para WhatsApp
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleContacted(activeSection.id, contact)}
+                          className="btn-tonal"
+                          style={
+                            contact.contacted
+                              ? { backgroundColor: '#e6f4ea', color: '#137333' }
+                              : {}
+                          }
+                        >
+                          {contact.contacted ? '✓ Contactado' : 'Marcar'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ---------------------------------------------------------------- */}
+        {/* VISTA 3 DEL PANEL: EDITOR DE PLANTILLA DE MENSAJE DE WHATSAPP    */}
+        {/* ---------------------------------------------------------------- */}
+        {drawerView === 'template' && (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="btn-tonal"
+                  style={{ height: '36px', padding: '0 14px', fontSize: '13px' }}
+                  onClick={() => setDrawerView('sections')}
+                >
+                  ← Volver
+                </button>
+                <h2 style={{ fontSize: '22px', fontWeight: 500, margin: 0 }}>
+                  Mensaje WhatsApp
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="card-icon-btn"
+                aria-label="Cerrar"
+                onClick={closeAllOverlays}
+              >
+                <MaterialIcon name="cerrar" size={22} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '14px', color: '#5f6368', marginTop: 0 }}>
+              Personalizá la plantilla predeterminada para contactar a los comercios. Tocá una etiqueta para insertarla:
+            </p>
+
+            <div className="flex flex-wrap gap-2 mb-3">
+              {['{nombre}', '{rubro}', '{lugar}', '{web}'].map((variable) => (
+                <button
+                  key={variable}
+                  type="button"
+                  className="suggestion-pill"
+                  onClick={() => {
+                    const updated = `${whatsappTemplate} ${variable}`;
+                    setWhatsappTemplate(updated);
+                    handleSaveSettings(updated, currentCountry.code);
+                  }}
+                >
+                  + {variable}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              rows={5}
+              value={whatsappTemplate}
+              onChange={(e) => setWhatsappTemplate(e.target.value)}
+              onBlur={() => handleSaveSettings(whatsappTemplate, currentCountry.code)}
+              aria-label="Plantilla de mensaje de WhatsApp"
+              className="w-full rounded-[20px] p-4 text-sm mb-4"
+              style={{
+                border: '1px solid #dadce0',
+                backgroundColor: '#f8f9fa',
+                color: '#1f1f1f',
+                fontFamily: 'inherit'
+              }}
+            />
+
+            <div className="flex items-center justify-between">
+              <span style={{ fontSize: '13px', color: '#1e8e3e', fontWeight: 500 }}>
+                {savingSettings ? 'Guardando…' : '✓ Guardado en tu equipo'}
+              </span>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  handleSaveSettings(whatsappTemplate, currentCountry.code);
+                  setDrawerView('sections');
+                }}
+              >
+                Listo
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ---------------------------------------------------------------- */}
+        {/* VISTA 4 DEL PANEL: AJUSTES Y REGISTRO DE ACTIVIDAD               */}
+        {/* ---------------------------------------------------------------- */}
+        {drawerView === 'settings' && (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="btn-tonal"
+                  style={{ height: '36px', padding: '0 14px', fontSize: '13px' }}
+                  onClick={() => setDrawerView('sections')}
+                >
+                  ← Volver
+                </button>
+                <h2 style={{ fontSize: '22px', fontWeight: 500, margin: 0 }}>
+                  Ajustes
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="card-icon-btn"
+                aria-label="Cerrar"
+                onClick={closeAllOverlays}
+              >
+                <MaterialIcon name="cerrar" size={22} />
+              </button>
+            </div>
+
+            <div className="space-y-4 flex-1 overflow-y-auto pr-1">
+              <div className="section-card" onClick={() => setSimulationMode((p) => !p)}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div style={{ fontSize: '15px', fontWeight: 500, color: '#1f1f1f' }}>
+                      Modo demostración rápida (420 ms)
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#5f6368', marginTop: '2px' }}>
+                      {simulationMode
+                        ? 'Activado: simula comercios de prueba cada 420 ms'
+                        : 'Desactivado: usa el motor real de Google Maps (Playwright)'}
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={simulationMode}
+                    onChange={(e) => setSimulationMode(e.target.checked)}
+                    aria-label="Activar modo demostración rápida"
+                    style={{ width: '18px', height: '18px', accentColor: '#1a73e8' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    color: '#1f1f1f',
+                    marginBottom: '8px'
+                  }}
+                >
+                  Actividad reciente del motor ({logs.length})
+                </div>
+                <div
+                  className="rounded-[20px] p-3.5 overflow-y-auto space-y-1.5"
+                  style={{
+                    height: '280px',
+                    backgroundColor: '#f8f9fa',
+                    border: '1px solid #e8eaed',
+                    fontSize: '12px',
+                    color: '#3c4043'
+                  }}
+                >
+                  {logs.length === 0 ? (
+                    <div style={{ color: '#70757a' }}>
+                      Sin eventos recientes. Iniciá una búsqueda para ver el progreso.
+                    </div>
+                  ) : (
+                    logs.map((l, i) => (
+                      <div key={i}>
+                        <span style={{ color: '#70757a', marginRight: '6px' }}>
+                          [{l.time}]
+                        </span>
+                        <span>{l.text}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </aside>
     </div>
   );
 }

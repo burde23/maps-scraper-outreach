@@ -1,0 +1,7 @@
+{
+  "settings": {
+    "defaultCountryCode": "54",
+    "whatsappTemplate": "¡Hola {nombre}! 👋 Los encontré buscando *{rubro}* en Google Maps ({lugar}) y quería ponerme en contacto con ustedes."
+  },
+  "sections": []
+}
