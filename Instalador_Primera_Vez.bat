@@ -1,9 +1,9 @@
 @echo off
-chcp 65001 >nul
-title Instalador Automático - Maps Scraper & WhatsApp Outreach
+title Instalador Automatico - Maps Scraper ^& WhatsApp Outreach
 color 0B
 
 cd /d "%~dp0"
+set "PATH=%PATH%;C:\Program Files\nodejs;C:\Program Files (x86)\nodejs;%APPDATA%\npm"
 
 echo ======================================================================
 echo    INSTALADOR AUTOMATICO - MAPS SCRAPER ^& WHATSAPP OUTREACH (LOCAL)
@@ -13,9 +13,9 @@ echo.
 where node >nul 2>nul
 if %errorlevel% neq 0 (
     color 0C
-    echo [ERROR] Node.js no esta instalado en esta computadora.
-    echo Por favor descarga e instala Node.js LTS desde: https://nodejs.org
-    echo Luego vuelve a abrir este instalador.
+    echo [ERROR] Node.js no se encontro en esta computadora.
+    echo Si acabas de instalar Node.js, reinicia la PC o descarga Node.js LTS desde:
+    echo https://nodejs.org
     pause
     exit /b 1
 )
@@ -56,9 +56,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObj
 
 echo.
 echo ======================================================================
-echo   ¡INSTALACION COMPLETADA CON EXITO!
+echo   INSTALACION COMPLETADA CON EXITO!
 echo   - Ejecutable listo: MapsScraperOutreach.exe
-echo   - Se creo el acceso directo en tu Escritorio: "Maps Scraper & WhatsApp"
+echo   - Acceso directo creado en el Escritorio: "Maps Scraper & WhatsApp"
 echo ======================================================================
 echo.
+start "" "MapsScraperOutreach.exe"
 pause

@@ -1,7 +1,7 @@
 @echo off
-chcp 65001 >nul
-title Maps Scraper & WhatsApp Outreach
+title Maps Scraper ^& WhatsApp Outreach
 cd /d "%~dp0"
+set "PATH=%PATH%;C:\Program Files\nodejs;C:\Program Files (x86)\nodejs;%APPDATA%\npm"
 
 if exist "MapsScraperOutreach.exe" (
     start "" "MapsScraperOutreach.exe"

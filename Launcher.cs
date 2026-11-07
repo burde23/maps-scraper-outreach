@@ -1056,7 +1056,17 @@ namespace MapsScraperLauncher
                 {
                     try
                     {
-                        ProcessStartInfo psi = new ProcessStartInfo("node", "server.js")
+                        string nodeExe = "node";
+                        if (File.Exists(@"C:\Program Files\nodejs\node.exe"))
+                        {
+                            nodeExe = @"C:\Program Files\nodejs\node.exe";
+                        }
+                        else if (File.Exists(@"C:\Program Files (x86)\nodejs\node.exe"))
+                        {
+                            nodeExe = @"C:\Program Files (x86)\nodejs\node.exe";
+                        }
+
+                        ProcessStartInfo psi = new ProcessStartInfo(nodeExe, "server.js")
                         {
                             WorkingDirectory = appDir,
                             UseShellExecute = false,
