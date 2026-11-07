@@ -49,10 +49,10 @@ if %errorlevel% neq 0 (
 echo.
 echo [4/4] Verificando ejecutable MapsScraperOutreach.exe y creando Acceso Directo...
 if exist "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" (
-    "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /target:winexe /out:"MapsScraperOutreach.exe" /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll "Launcher.cs" >nul 2>nul
+    "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /target:winexe /win32icon:"maps-scraper.ico" /out:"MapsScraperOutreach.exe" /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll "Launcher.cs" >nul 2>nul
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObject WScript.Shell; $desktop = [Environment]::GetFolderPath('Desktop'); $s = $ws.CreateShortcut((Join-Path $desktop 'Maps Scraper & WhatsApp.lnk')); $s.TargetPath = (Join-Path '%~dp0' 'MapsScraperOutreach.exe'); $s.WorkingDirectory = '%~dp0'; $s.Description = 'Buscador de Google Maps y WhatsApp Outreach Local'; $s.Save()" >nul 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ws = New-Object -ComObject WScript.Shell; $desktop = [Environment]::GetFolderPath('Desktop'); $s = $ws.CreateShortcut((Join-Path $desktop 'Maps Scraper & WhatsApp.lnk')); $s.TargetPath = (Join-Path '%~dp0' 'MapsScraperOutreach.exe'); $s.WorkingDirectory = '%~dp0'; $s.IconLocation = (Join-Path '%~dp0' 'maps-scraper.ico'); $s.Description = 'Buscador de Google Maps y WhatsApp Outreach Local'; $s.Save()" >nul 2>nul
 
 echo.
 echo ======================================================================

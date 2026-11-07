@@ -142,11 +142,30 @@ namespace MapsScraperLauncher
 
         private void SetFourColorRingIcon()
         {
-            string icoPath = Path.Combine(appDir, "app.ico");
-            if (File.Exists(icoPath))
+            string[] icoCandidates = new string[]
             {
-                try { this.Icon = new Icon(icoPath); return; } catch { }
+                Path.Combine(appDir, "maps-scraper.ico"),
+                Path.Combine(appDir, "app.ico")
+            };
+
+            foreach (string icoPath in icoCandidates)
+            {
+                if (File.Exists(icoPath))
+                {
+                    try { this.Icon = new Icon(icoPath); return; } catch { }
+                }
             }
+
+            try
+            {
+                Icon exeIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+                if (exeIcon != null)
+                {
+                    this.Icon = exeIcon;
+                    return;
+                }
+            }
+            catch { }
 
             try
             {
